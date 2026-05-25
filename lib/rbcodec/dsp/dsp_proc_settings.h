@@ -30,6 +30,8 @@
 #include "pga.h"
 #include "surround.h"
 #include "afr.h"
+#include "bassboost.h"
+#include "crystalizer.h"
 #include "pbe.h"
 #ifdef HAVE_PITCHCONTROL
 #include "tdspeed.h"

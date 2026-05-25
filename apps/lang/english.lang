@@ -102,6 +102,230 @@
   </voice>
 </phrase>
 <phrase>
+  id: LANG_BASSBOOST
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Bass Boost"
+  </source>
+  <dest>
+    *: "Bass Boost"
+  </dest>
+  <voice>
+    *: "Bass Boost"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BASSBOOST_ENABLE
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Enable"
+  </source>
+  <dest>
+    *: "Enable"
+  </dest>
+  <voice>
+    *: "Enable"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BASSBOOST_CROSSOVER
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Crossover"
+  </source>
+  <dest>
+    *: "Crossover"
+  </dest>
+  <voice>
+    *: "Crossover"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BASSBOOST_THRESHOLD
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Threshold"
+  </source>
+  <dest>
+    *: "Threshold"
+  </dest>
+  <voice>
+    *: "Threshold"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BASSBOOST_RATIO
+  desc: deprecated
+  user: core
+  <source>
+    *: ""
+  </source>
+  <dest>
+    *: ""
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BASSBOOST_ROFF
+  desc: in sound settings
+  user: core
+  <source>
+    *: "off"
+  </source>
+  <dest>
+    *: "off"
+  </dest>
+  <voice>
+    *: "off"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BASSBOOST_R2
+  desc: in sound settings
+  user: core
+  <source>
+    *: "2:1"
+  </source>
+  <dest>
+    *: "2:1"
+  </dest>
+  <voice>
+    *: "2 to 1"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BASSBOOST_R4
+  desc: in sound settings
+  user: core
+  <source>
+    *: "4:1"
+  </source>
+  <dest>
+    *: "4:1"
+  </dest>
+  <voice>
+    *: "4 to 1"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BASSBOOST_R6
+  desc: in sound settings
+  user: core
+  <source>
+    *: "6:1"
+  </source>
+  <dest>
+    *: "6:1"
+  </dest>
+  <voice>
+    *: "6 to 1"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BASSBOOST_R10
+  desc: in sound settings
+  user: core
+  <source>
+    *: "10:1"
+  </source>
+  <dest>
+    *: "10:1"
+  </dest>
+  <voice>
+    *: "10 to 1"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BASSBOOST_RLIMIT
+  desc: in sound settings
+  user: core
+  <source>
+    *: "limit"
+  </source>
+  <dest>
+    *: "limit"
+  </dest>
+  <voice>
+    *: "limit"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BASSBOOST_ATTACK
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Attack"
+  </source>
+  <dest>
+    *: "Attack"
+  </dest>
+  <voice>
+    *: "Attack"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BASSBOOST_RELEASE
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Release"
+  </source>
+  <dest>
+    *: "Release"
+  </dest>
+  <voice>
+    *: "Release"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BASSBOOST_MAKEUP
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Makeup Gain"
+  </source>
+  <dest>
+    *: "Makeup Gain"
+  </dest>
+  <voice>
+    *: "Makeup Gain"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BASSBOOST_MIX
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Mix"
+  </source>
+  <dest>
+    *: "Mix"
+  </dest>
+  <voice>
+    *: "Mix"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BASSBOOST_OUTPUT
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Output Gain"
+  </source>
+  <dest>
+    *: "Output Gain"
+  </dest>
+  <voice>
+    *: "Output Gain"
+  </voice>
+</phrase>
+<phrase>
   id: LANG_SET_BOOL_YES
   desc: bool true representation
   user: core
@@ -17167,5 +17391,215 @@
   </dest>
   <voice>
     *: "Finished"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BASSBOOST_RATIO_DOWN
+  desc: bassboost menu - downward compression ratio
+  user: core
+  <source>
+    *: "Ratio Down"
+  </source>
+  <dest>
+    *: "Ratio Down"
+  </dest>
+  <voice>
+    *: "Ratio Down"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BASSBOOST_RATIO_UP
+  desc: bassboost menu - upward expansion ratio
+  user: core
+  <source>
+    *: "Ratio Up"
+  </source>
+  <dest>
+    *: "Ratio Up"
+  </dest>
+  <voice>
+    *: "Ratio Up"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BASSBOOST_RU_OFF
+  desc: bassboost ratio up choice
+  user: core
+  <source>
+    *: "off"
+  </source>
+  <dest>
+    *: "off"
+  </dest>
+  <voice>
+    *: "off"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BASSBOOST_RU_25
+  desc: bassboost ratio up choice
+  user: core
+  <source>
+    *: "0.25:1"
+  </source>
+  <dest>
+    *: "0.25:1"
+  </dest>
+  <voice>
+    *: "0.25 to 1"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BASSBOOST_RU_50
+  desc: bassboost ratio up choice
+  user: core
+  <source>
+    *: "0.5:1"
+  </source>
+  <dest>
+    *: "0.5:1"
+  </dest>
+  <voice>
+    *: "0.5 to 1"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BASSBOOST_RU_75
+  desc: bassboost ratio up choice
+  user: core
+  <source>
+    *: "0.75:1"
+  </source>
+  <dest>
+    *: "0.75:1"
+  </dest>
+  <voice>
+    *: "0.75 to 1"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BASSBOOST_PREGAIN
+  desc: bassboost menu - pre gain before compression
+  user: core
+  <source>
+    *: "Pre Gain"
+  </source>
+  <dest>
+    *: "Pre Gain"
+  </dest>
+  <voice>
+    *: "Pre Gain"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BASSBOOST_KNEE
+  desc: bassboost menu - knee width
+  user: core
+  <source>
+    *: "Knee"
+  </source>
+  <dest>
+    *: "Knee"
+  </dest>
+  <voice>
+    *: "Knee"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BASSBOOST_DRIVE
+  desc: bassboost menu - saturation drive amount
+  user: core
+  <source>
+    *: "Drive"
+  </source>
+  <dest>
+    *: "Drive"
+  </dest>
+  <voice>
+    *: "Drive"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_CRYSTALIZER
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Crystalizer"
+  </source>
+  <dest>
+    *: "Crystalizer"
+  </dest>
+  <voice>
+    *: "Crystalizer"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_CRYSTALIZER_ENABLE
+  desc: crystalizer menu
+  user: core
+  <source>
+    *: "Enable"
+  </source>
+  <dest>
+    *: "Enable"
+  </dest>
+  <voice>
+    *: "Enable"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_CRYSTALIZER_INTENSITY_LOW
+  desc: crystalizer menu - low band intensity
+  user: core
+  <source>
+    *: "Intensity Low"
+  </source>
+  <dest>
+    *: "Intensity Low"
+  </dest>
+  <voice>
+    *: "Intensity Low"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_CRYSTALIZER_INTENSITY_MID
+  desc: crystalizer menu - mid band intensity
+  user: core
+  <source>
+    *: "Intensity Mid"
+  </source>
+  <dest>
+    *: "Intensity Mid"
+  </dest>
+  <voice>
+    *: "Intensity Mid"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_CRYSTALIZER_INTENSITY_HIGH
+  desc: crystalizer menu - high band intensity
+  user: core
+  <source>
+    *: "Intensity High"
+  </source>
+  <dest>
+    *: "Intensity High"
+  </dest>
+  <voice>
+    *: "Intensity High"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_CRYSTALIZER_OUTPUT
+  desc: crystalizer menu - output gain
+  user: core
+  <source>
+    *: "Output Gain"
+  </source>
+  <dest>
+    *: "Output Gain"
+  </dest>
+  <voice>
+    *: "Output Gain"
   </voice>
 </phrase>

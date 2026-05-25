@@ -656,6 +656,30 @@ static void compressor_set(int val)
     dsp_set_compressor(&global_settings.compressor_settings);
 }
 
+static void bassboost_set(int val)
+{
+    (void)val;
+    dsp_set_bassboost(&global_settings.bassboost_settings);
+}
+
+static void bassboost_set_bool(bool val)
+{
+    (void)val;
+    dsp_set_bassboost(&global_settings.bassboost_settings);
+}
+
+static void crystalizer_set(int val)
+{
+    (void)val;
+    dsp_set_crystalizer(&global_settings.crystalizer_settings);
+}
+
+static void crystalizer_set_bool(bool val)
+{
+    (void)val;
+    dsp_set_crystalizer(&global_settings.crystalizer_settings);
+}
+
 static const char* db_format(char* buffer, size_t buffer_size, int value,
                       const char* unit)
 {
@@ -1910,6 +1934,92 @@ const struct settings_list settings[] = {
     OFFON_SETTING(F_SOUNDSETTING, timestretch_enabled, LANG_TIMESTRETCH, false,
                   "timestretch enabled", dsp_timestretch_enable),
 #endif
+
+    /* bassboost */
+    OFFON_SETTING(F_SOUNDSETTING, bassboost_settings.enabled,
+                  LANG_BASSBOOST_ENABLE, false,
+                  "bassboost enable", bassboost_set_bool),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, bassboost_settings.crossover_hz,
+                       LANG_BASSBOOST_CROSSOVER, 120,
+                       "bassboost crossover", UNIT_INT, 40, 500,
+                       10, NULL, NULL, bassboost_set),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, bassboost_settings.threshold,
+                       LANG_BASSBOOST_THRESHOLD, -18,
+                       "bassboost threshold", UNIT_DB, -60, 0,
+                       3, NULL, NULL, bassboost_set),
+     CHOICE_SETTING(F_SOUNDSETTING|F_NO_WRAP, bassboost_settings.ratio_down,
+                    LANG_BASSBOOST_RATIO_DOWN, 2,
+                    "bassboost ratio down",
+                    "off,2:1,4:1,6:1,10:1,limit", bassboost_set, 6,
+                    ID2P(LANG_BASSBOOST_ROFF),
+                    ID2P(LANG_BASSBOOST_R2),
+                    ID2P(LANG_BASSBOOST_R4),
+                    ID2P(LANG_BASSBOOST_R6),
+                    ID2P(LANG_BASSBOOST_R10),
+                    ID2P(LANG_BASSBOOST_RLIMIT)),
+     CHOICE_SETTING(F_SOUNDSETTING|F_NO_WRAP, bassboost_settings.ratio_up,
+                    LANG_BASSBOOST_RATIO_UP, 2,
+                    "bassboost ratio up",
+                    "off,0.25:1,0.5:1,0.75:1", bassboost_set, 4,
+                    ID2P(LANG_BASSBOOST_RU_OFF),
+                    ID2P(LANG_BASSBOOST_RU_25),
+                    ID2P(LANG_BASSBOOST_RU_50),
+                    ID2P(LANG_BASSBOOST_RU_75)),
+     INT_SETTING_NOWRAP(F_SOUNDSETTING, bassboost_settings.pre_gain,
+                        LANG_BASSBOOST_PREGAIN, 0,
+                        "bassboost pre gain", UNIT_DB, 0, 240,
+                        10, NULL, NULL, bassboost_set),
+     INT_SETTING_NOWRAP(F_SOUNDSETTING, bassboost_settings.knee_db,
+                        LANG_BASSBOOST_KNEE, 6,
+                        "bassboost knee", UNIT_DB, 0, 12,
+                        1, NULL, NULL, bassboost_set),
+     INT_SETTING_NOWRAP(F_SOUNDSETTING, bassboost_settings.drive,
+                        LANG_BASSBOOST_DRIVE, 0,
+                        "bassboost drive", UNIT_PERCENT, 0, 100,
+                        5, NULL, NULL, bassboost_set),
+     INT_SETTING_NOWRAP(F_TIME_SETTING|F_SOUNDSETTING,
+                       bassboost_settings.attack_ms,
+                       LANG_BASSBOOST_ATTACK, 5,
+                       "bassboost attack", UNIT_MS, 1, 500,
+                       5, NULL, NULL, bassboost_set),
+    INT_SETTING_NOWRAP(F_TIME_SETTING|F_SOUNDSETTING,
+                       bassboost_settings.release_ms,
+                       LANG_BASSBOOST_RELEASE, 150,
+                       "bassboost release", UNIT_MS, 10, 2000,
+                       10, NULL, NULL, bassboost_set),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, bassboost_settings.makeup_gain_db,
+                       LANG_BASSBOOST_MAKEUP, 60,
+                       "bassboost makeup gain", UNIT_DB, 0, 240,
+                       5, NULL, NULL, bassboost_set),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, bassboost_settings.mix,
+                       LANG_BASSBOOST_MIX, 100,
+                       "bassboost mix", UNIT_PERCENT, 0, 100,
+                       5, NULL, NULL, bassboost_set),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, bassboost_settings.output_gain,
+                       LANG_BASSBOOST_OUTPUT, 0,
+                       "bassboost output gain", UNIT_DB, -120, 120,
+                       5, NULL, NULL, bassboost_set),
+
+    /* crystalizer */
+    OFFON_SETTING(F_SOUNDSETTING, crystalizer_settings.enabled,
+                  LANG_CRYSTALIZER_ENABLE, false,
+                  "crystalizer enable", crystalizer_set_bool),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, crystalizer_settings.intensity_low,
+                       LANG_CRYSTALIZER_INTENSITY_LOW, 0,
+                       "crystalizer intensity low", UNIT_DB, -240, 240,
+                       10, NULL, NULL, crystalizer_set),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, crystalizer_settings.intensity_mid,
+                       LANG_CRYSTALIZER_INTENSITY_MID, 0,
+                       "crystalizer intensity mid", UNIT_DB, -240, 240,
+                       10, NULL, NULL, crystalizer_set),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, crystalizer_settings.intensity_high,
+                       LANG_CRYSTALIZER_INTENSITY_HIGH, 0,
+                       "crystalizer intensity high", UNIT_DB, -240, 240,
+                       10, NULL, NULL, crystalizer_set),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, crystalizer_settings.output_gain,
+                       LANG_CRYSTALIZER_OUTPUT, 0,
+                       "crystalizer output gain", UNIT_DB, -120, 120,
+                       5, NULL, NULL, crystalizer_set),
 
     /* compressor */
     INT_SETTING_NOWRAP(F_SOUNDSETTING, compressor_settings.threshold,

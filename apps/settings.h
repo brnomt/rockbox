@@ -829,6 +829,8 @@ struct user_settings
 #endif
 
     struct compressor_settings compressor_settings;
+    struct bassboost_settings bassboost_settings;
+    struct crystalizer_settings crystalizer_settings;
 
     int sleeptimer_duration; /* In minutes; 0=off */
     bool sleeptimer_on_startup;

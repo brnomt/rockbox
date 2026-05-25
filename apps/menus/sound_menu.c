@@ -225,6 +225,78 @@ static int timestretch_callback(int action,
               &compressor_threshold, &compressor_gain, &compressor_ratio,
               &compressor_knee, &compressor_attack, &compressor_release);
 
+    /* bassboost menu */
+    MENUITEM_SETTING(bassboost_enabled,
+                     &global_settings.bassboost_settings.enabled,
+                     lowlatency_callback);
+    MENUITEM_SETTING(bassboost_crossover,
+                     &global_settings.bassboost_settings.crossover_hz,
+                     lowlatency_callback);
+     MENUITEM_SETTING(bassboost_threshold,
+                      &global_settings.bassboost_settings.threshold,
+                      lowlatency_callback);
+     MENUITEM_SETTING(bassboost_ratio_down,
+                      &global_settings.bassboost_settings.ratio_down,
+                      lowlatency_callback);
+     MENUITEM_SETTING(bassboost_ratio_up,
+                      &global_settings.bassboost_settings.ratio_up,
+                      lowlatency_callback);
+     MENUITEM_SETTING(bassboost_pregain,
+                      &global_settings.bassboost_settings.pre_gain,
+                      lowlatency_callback);
+     MENUITEM_SETTING(bassboost_knee,
+                      &global_settings.bassboost_settings.knee_db,
+                      lowlatency_callback);
+     MENUITEM_SETTING(bassboost_drive,
+                      &global_settings.bassboost_settings.drive,
+                      lowlatency_callback);
+     MENUITEM_SETTING(bassboost_attack,
+                      &global_settings.bassboost_settings.attack_ms,
+                      lowlatency_callback);
+     MENUITEM_SETTING(bassboost_release,
+                      &global_settings.bassboost_settings.release_ms,
+                      lowlatency_callback);
+     MENUITEM_SETTING(bassboost_makeup,
+                      &global_settings.bassboost_settings.makeup_gain_db,
+                      lowlatency_callback);
+     MENUITEM_SETTING(bassboost_mix,
+                      &global_settings.bassboost_settings.mix,
+                      lowlatency_callback);
+     MENUITEM_SETTING(bassboost_outgain,
+                      &global_settings.bassboost_settings.output_gain,
+                      lowlatency_callback);
+     MAKE_MENU(bassboost_menu, ID2P(LANG_BASSBOOST), NULL, Icon_NOICON,
+               &bassboost_enabled, &bassboost_crossover,
+               &bassboost_threshold, &bassboost_ratio_down,
+               &bassboost_ratio_up,
+               &bassboost_pregain, &bassboost_knee, &bassboost_drive,
+               &bassboost_attack, &bassboost_release,
+               &bassboost_makeup, &bassboost_mix,
+               &bassboost_outgain);
+
+    /* crystalizer menu */
+    MENUITEM_SETTING(crystalizer_enabled,
+                     &global_settings.crystalizer_settings.enabled,
+                     lowlatency_callback);
+    MENUITEM_SETTING(crystalizer_intensity_low,
+                     &global_settings.crystalizer_settings.intensity_low,
+                     lowlatency_callback);
+    MENUITEM_SETTING(crystalizer_intensity_mid,
+                     &global_settings.crystalizer_settings.intensity_mid,
+                     lowlatency_callback);
+    MENUITEM_SETTING(crystalizer_intensity_high,
+                     &global_settings.crystalizer_settings.intensity_high,
+                     lowlatency_callback);
+    MENUITEM_SETTING(crystalizer_output_gain,
+                     &global_settings.crystalizer_settings.output_gain,
+                     lowlatency_callback);
+    MAKE_MENU(crystalizer_menu, ID2P(LANG_CRYSTALIZER), NULL, Icon_NOICON,
+              &crystalizer_enabled,
+              &crystalizer_intensity_low,
+              &crystalizer_intensity_mid,
+              &crystalizer_intensity_high,
+              &crystalizer_output_gain);
+
 #ifdef HAVE_SPEAKER
     MENUITEM_SETTING(speaker_mode, &global_settings.speaker_mode, NULL);
 #endif
@@ -269,6 +341,8 @@ MAKE_MENU(sound_settings, ID2P(LANG_SOUND_SETTINGS), NULL, Icon_Audio,
           ,&timestretch_enabled
 #endif
           ,&compressor_menu
+          ,&bassboost_menu
+          ,&crystalizer_menu
 #ifdef HAVE_SPEAKER
          ,&speaker_mode
 #endif
