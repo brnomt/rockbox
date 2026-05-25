@@ -262,6 +262,9 @@ static int timestretch_callback(int action,
      MENUITEM_SETTING(bassboost_mix,
                       &global_settings.bassboost_settings.mix,
                       lowlatency_callback);
+     MENUITEM_SETTING(bassboost_spread,
+                      &global_settings.bassboost_settings.spread,
+                      lowlatency_callback);
      MENUITEM_SETTING(bassboost_outgain,
                       &global_settings.bassboost_settings.output_gain,
                       lowlatency_callback);
@@ -272,6 +275,7 @@ static int timestretch_callback(int action,
                &bassboost_pregain, &bassboost_knee, &bassboost_drive,
                &bassboost_attack, &bassboost_release,
                &bassboost_makeup, &bassboost_mix,
+               &bassboost_spread,
                &bassboost_outgain);
 
     /* crystalizer menu */
@@ -290,11 +294,15 @@ static int timestretch_callback(int action,
     MENUITEM_SETTING(crystalizer_output_gain,
                      &global_settings.crystalizer_settings.output_gain,
                      lowlatency_callback);
+    MENUITEM_SETTING(crystalizer_mix,
+                     &global_settings.crystalizer_settings.mix,
+                     lowlatency_callback);
     MAKE_MENU(crystalizer_menu, ID2P(LANG_CRYSTALIZER), NULL, Icon_NOICON,
               &crystalizer_enabled,
               &crystalizer_intensity_low,
               &crystalizer_intensity_mid,
               &crystalizer_intensity_high,
+              &crystalizer_mix,
               &crystalizer_output_gain);
 
 #ifdef HAVE_SPEAKER

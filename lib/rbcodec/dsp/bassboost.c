@@ -65,18 +65,19 @@ static const int32_t db_table[64] = {
 };
 
 static struct bassboost_settings curr_set;
-static int32_t output_gain;
+static int32_t output_gain = UNITY;
 static int32_t gain_table[GAIN_TABLE_SIZE];
-static int32_t attca, attcb, rlsca, rlscb;
-static int32_t makeup_gain;
-static int32_t pre_gain_linear;
-static int32_t wet_mix, dry_mix;
-static int32_t drive_scale, drive_blend;
+static int32_t attca = UNITY, attcb, rlsca = UNITY, rlscb;
+static int32_t makeup_gain = UNITY;
+static int32_t pre_gain_linear = UNITY;
+static int32_t wet_mix, dry_mix = UNITY;
+static int32_t drive_scale = UNITY, drive_blend;
+static int32_t spread_gain;
 static int32_t envelope_down[MAX_CH], envelope_up[MAX_CH];
 static struct dsp_filter lpf[2];
 
 static const int ratio_down_map[6] = {0, 200, 400, 600, 1000, LIMIT_PCT};
-static const int ratio_up_map[4] = {0, 25, 50, 75};
+static const int ratio_up_map[6] = {0, 10, 15, 25, 50, 75};
 
 static int32_t get_tc_coeff(int32_t rc_ms, int32_t fs)
 {
@@ -165,7 +166,11 @@ static void build_gain_table(int threshold, int ratio_down_pct, int ratio_up_pct
 
     for (int i = 0; i < 64; i++)
     {
-        int32_t this_db = -db_table[i];
+        int32_t this_db;
+        if (i == 0)
+            this_db = -db_table[1];
+        else
+            this_db = -db_table[i];
         int32_t gain_db = 0;
 
         int32_t knee_bottom = thresh - knee_half;
@@ -290,14 +295,14 @@ static FORCE_INLINE int32_t get_gain(int32_t sample, int frac_bits)
 
     if (sample < (1 << 17))
     {
-        int32_t frac = ((sample - (1 << 15)) / 3) << 16;
+        int32_t frac = (int32_t)(((int64_t)(sample - (1 << 15)) << 16) / 3);
         int32_t g64 = gain_table[64];
         int32_t g65 = gain_table[65];
         int32_t diff = g64 - g65;
         return g64 - (int32_t)(((int64_t)frac * (int64_t)diff) >> 31);
     }
 
-    return -1;
+    return gain_table[65];
 }
 
 static FORCE_INLINE int32_t apply_drive(int32_t x, int32_t scale, int32_t blend)
@@ -347,7 +352,9 @@ static void bassboost_process(struct dsp_proc_entry *this,
 
             int32_t hp = x - lp;
 
-            lp = apply_drive(lp, drive_scale, drive_blend);
+            int32_t driven = apply_drive(lp, drive_scale, drive_blend);
+
+            lp = driven;
 
             int32_t sidechain = FRACMUL_SHL(lp, pre_gain_linear, 7);
             int32_t abs_lp = (sidechain < 0) ? -(sidechain + 1) : sidechain;
@@ -377,6 +384,9 @@ static void bassboost_process(struct dsp_proc_entry *this,
             int32_t lp_out = FRACMUL_SHL(lp, dry_mix + wet_gain, 7);
 
             int32_t merged = hp + lp_out;
+
+            if (spread_gain > 0)
+                merged += FRACMUL_SHL(lp, spread_gain, 7);
 
             if (ch == 0) outL = merged;
             else         outR = merged;
@@ -412,7 +422,7 @@ static bool bassboost_update(struct dsp_config *dsp,
     int ratio_down_val = (rd >= 0 && rd < 6) ? ratio_down_map[rd] : 400;
 
     int ru = settings->ratio_up;
-    int ratio_up_val = (ru >= 0 && ru < 4) ? ratio_up_map[ru] : 50;
+    int ratio_up_val = (ru >= 0 && ru < 6) ? ratio_up_map[ru] : 50;
 
     setup_lpf(settings->crossover_hz, fs);
     build_gain_table(settings->threshold, ratio_down_val, ratio_up_val,
@@ -470,6 +480,11 @@ static bool bassboost_update(struct dsp_config *dsp,
     if (mix > 100) mix = 100;
     wet_mix = ((int64_t)mix * UNITY) / 100;
     dry_mix = UNITY - wet_mix;
+
+    int sp = settings->spread;
+    if (sp < 0) sp = 0;
+    if (sp > 100) sp = 100;
+    spread_gain = ((int64_t)sp * UNITY) / 100;
 
     if (settings->output_gain != 0)
     {

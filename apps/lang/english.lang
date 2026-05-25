@@ -312,6 +312,20 @@
   </voice>
 </phrase>
 <phrase>
+  id: LANG_BASSBOOST_SPREAD
+  desc: bassboost menu - harmonic spread to full band
+  user: core
+  <source>
+    *: "Harmonic Spread"
+  </source>
+  <dest>
+    *: "Harmonic Spread"
+  </dest>
+  <voice>
+    *: "Harmonic Spread"
+  </voice>
+</phrase>
+<phrase>
   id: LANG_BASSBOOST_OUTPUT
   desc: in sound settings
   user: core
@@ -17436,6 +17450,34 @@
   </voice>
 </phrase>
 <phrase>
+  id: LANG_BASSBOOST_RU_10
+  desc: bassboost ratio up choice
+  user: core
+  <source>
+    *: "0.10:1"
+  </source>
+  <dest>
+    *: "0.10:1"
+  </dest>
+  <voice>
+    *: "0.1 to 1"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BASSBOOST_RU_15
+  desc: bassboost ratio up choice
+  user: core
+  <source>
+    *: "0.15:1"
+  </source>
+  <dest>
+    *: "0.15:1"
+  </dest>
+  <voice>
+    *: "0.15 to 1"
+  </voice>
+</phrase>
+<phrase>
   id: LANG_BASSBOOST_RU_25
   desc: bassboost ratio up choice
   user: core
@@ -17587,6 +17629,20 @@
   </dest>
   <voice>
     *: "Intensity High"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_CRYSTALIZER_MIX
+  desc: crystalizer menu - wet/dry mix
+  user: core
+  <source>
+    *: "Mix"
+  </source>
+  <dest>
+    *: "Mix"
+  </dest>
+  <voice>
+    *: "Mix"
   </voice>
 </phrase>
 <phrase>
