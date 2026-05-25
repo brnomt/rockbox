@@ -198,7 +198,8 @@ static void build_gain_table(struct band_coeff *bc,
     else if (ratio_down > 100)
         down_off_0 = (int32_t)(((int64_t)thresh_s16 * (ratio_down - 100)) / ratio_down);
 
-    for (int i = 0; i < 64; i++)
+    bc->gain_table[0] = UNITY;
+    for (int i = 1; i < 64; i++)
     {
         int32_t this_db = -db_table[i];
         int32_t gain_db = 0;
