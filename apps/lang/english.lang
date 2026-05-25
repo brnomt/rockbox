@@ -17436,6 +17436,34 @@
   </voice>
 </phrase>
 <phrase>
+  id: LANG_BASSBOOST_RU_10
+  desc: bassboost ratio up choice
+  user: core
+  <source>
+    *: "0.10:1"
+  </source>
+  <dest>
+    *: "0.10:1"
+  </dest>
+  <voice>
+    *: "0.1 to 1"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BASSBOOST_RU_15
+  desc: bassboost ratio up choice
+  user: core
+  <source>
+    *: "0.15:1"
+  </source>
+  <dest>
+    *: "0.15:1"
+  </dest>
+  <voice>
+    *: "0.15 to 1"
+  </voice>
+</phrase>
+<phrase>
   id: LANG_BASSBOOST_RU_25
   desc: bassboost ratio up choice
   user: core
