@@ -297,6 +297,30 @@ static int timestretch_callback(int action,
               &crystalizer_intensity_high,
               &crystalizer_output_gain);
 
+    /* exciter menu */
+    MENUITEM_SETTING(exciter_enabled,
+                     &global_settings.exciter_settings.enabled,
+                     lowlatency_callback);
+    MENUITEM_SETTING(exciter_scope,
+                     &global_settings.exciter_settings.scope_hz,
+                     lowlatency_callback);
+    MENUITEM_SETTING(exciter_drive,
+                     &global_settings.exciter_settings.drive,
+                     lowlatency_callback);
+    MENUITEM_SETTING(exciter_amount,
+                     &global_settings.exciter_settings.amount,
+                     lowlatency_callback);
+    MENUITEM_SETTING(exciter_ceil,
+                     &global_settings.exciter_settings.ceil_hz,
+                     lowlatency_callback);
+    MENUITEM_SETTING(exciter_output,
+                     &global_settings.exciter_settings.output_gain,
+                     lowlatency_callback);
+    MAKE_MENU(exciter_menu, ID2P(LANG_EXCITER), NULL, Icon_NOICON,
+              &exciter_enabled, &exciter_scope,
+              &exciter_drive, &exciter_amount,
+              &exciter_ceil, &exciter_output);
+
 #ifdef HAVE_SPEAKER
     MENUITEM_SETTING(speaker_mode, &global_settings.speaker_mode, NULL);
 #endif
@@ -343,6 +367,7 @@ MAKE_MENU(sound_settings, ID2P(LANG_SOUND_SETTINGS), NULL, Icon_Audio,
           ,&compressor_menu
           ,&bassboost_menu
           ,&crystalizer_menu
+          ,&exciter_menu
 #ifdef HAVE_SPEAKER
          ,&speaker_mode
 #endif

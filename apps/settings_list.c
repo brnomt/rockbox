@@ -680,6 +680,18 @@ static void crystalizer_set_bool(bool val)
     dsp_set_crystalizer(&global_settings.crystalizer_settings);
 }
 
+static void exciter_set(int val)
+{
+    (void)val;
+    dsp_set_exciter(&global_settings.exciter_settings);
+}
+
+static void exciter_set_bool(bool val)
+{
+    (void)val;
+    dsp_set_exciter(&global_settings.exciter_settings);
+}
+
 static const char* db_format(char* buffer, size_t buffer_size, int value,
                       const char* unit)
 {
@@ -2022,6 +2034,31 @@ const struct settings_list settings[] = {
                        LANG_CRYSTALIZER_OUTPUT, 0,
                        "crystalizer output gain", UNIT_DB, -120, 120,
                        5, NULL, NULL, crystalizer_set),
+
+    /* exciter */
+    OFFON_SETTING(F_SOUNDSETTING, exciter_settings.enabled,
+                  LANG_EXCITER_ENABLE, false,
+                  "exciter enable", exciter_set_bool),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, exciter_settings.scope_hz,
+                       LANG_EXCITER_SCOPE, 3000,
+                       "exciter scope", UNIT_INT, 500, 20000,
+                       500, NULL, NULL, exciter_set),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, exciter_settings.drive,
+                       LANG_EXCITER_DRIVE, 30,
+                       "exciter drive", UNIT_PERCENT, 0, 100,
+                       5, NULL, NULL, exciter_set),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, exciter_settings.amount,
+                       LANG_EXCITER_AMOUNT, 0,
+                       "exciter amount", UNIT_DB, 0, 120,
+                       5, NULL, NULL, exciter_set),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, exciter_settings.ceil_hz,
+                       LANG_EXCITER_CEIL, 0,
+                       "exciter ceiling", UNIT_INT, 0, 20000,
+                       500, NULL, NULL, exciter_set),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, exciter_settings.output_gain,
+                       LANG_EXCITER_OUTPUT, 0,
+                       "exciter output gain", UNIT_DB, -120, 120,
+                       5, NULL, NULL, exciter_set),
 
     /* compressor */
     INT_SETTING_NOWRAP(F_SOUNDSETTING, compressor_settings.threshold,

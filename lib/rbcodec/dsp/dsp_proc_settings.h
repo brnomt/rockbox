@@ -32,6 +32,7 @@
 #include "afr.h"
 #include "bassboost.h"
 #include "crystalizer.h"
+#include "exciter.h"
 #include "pbe.h"
 #ifdef HAVE_PITCHCONTROL
 #include "tdspeed.h"
