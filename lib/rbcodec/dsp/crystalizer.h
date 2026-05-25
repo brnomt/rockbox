@@ -36,6 +36,7 @@ struct crystalizer_settings
     int intensity_mid;       /* -240 to +240, 0.1 dB (default 0) */
     int intensity_high;      /* -240 to +240, 0.1 dB (default 0) */
     int output_gain;         /* -120 to +120, 0.1 dB (default 0) */
+    int mix;                 /* 0-100% (default 100) */
 };
 
 void dsp_set_crystalizer(const struct crystalizer_settings *settings);

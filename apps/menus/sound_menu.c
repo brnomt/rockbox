@@ -262,6 +262,9 @@ static int timestretch_callback(int action,
      MENUITEM_SETTING(bassboost_mix,
                       &global_settings.bassboost_settings.mix,
                       lowlatency_callback);
+     MENUITEM_SETTING(bassboost_spread,
+                      &global_settings.bassboost_settings.spread,
+                      lowlatency_callback);
      MENUITEM_SETTING(bassboost_outgain,
                       &global_settings.bassboost_settings.output_gain,
                       lowlatency_callback);
@@ -272,6 +275,7 @@ static int timestretch_callback(int action,
                &bassboost_pregain, &bassboost_knee, &bassboost_drive,
                &bassboost_attack, &bassboost_release,
                &bassboost_makeup, &bassboost_mix,
+               &bassboost_spread,
                &bassboost_outgain);
 
     /* crystalizer menu */
@@ -290,36 +294,16 @@ static int timestretch_callback(int action,
     MENUITEM_SETTING(crystalizer_output_gain,
                      &global_settings.crystalizer_settings.output_gain,
                      lowlatency_callback);
+    MENUITEM_SETTING(crystalizer_mix,
+                     &global_settings.crystalizer_settings.mix,
+                     lowlatency_callback);
     MAKE_MENU(crystalizer_menu, ID2P(LANG_CRYSTALIZER), NULL, Icon_NOICON,
               &crystalizer_enabled,
               &crystalizer_intensity_low,
               &crystalizer_intensity_mid,
               &crystalizer_intensity_high,
+              &crystalizer_mix,
               &crystalizer_output_gain);
-
-    /* exciter menu */
-    MENUITEM_SETTING(exciter_enabled,
-                     &global_settings.exciter_settings.enabled,
-                     lowlatency_callback);
-    MENUITEM_SETTING(exciter_scope,
-                     &global_settings.exciter_settings.scope_hz,
-                     lowlatency_callback);
-    MENUITEM_SETTING(exciter_drive,
-                     &global_settings.exciter_settings.drive,
-                     lowlatency_callback);
-    MENUITEM_SETTING(exciter_amount,
-                     &global_settings.exciter_settings.amount,
-                     lowlatency_callback);
-    MENUITEM_SETTING(exciter_ceil,
-                     &global_settings.exciter_settings.ceil_hz,
-                     lowlatency_callback);
-    MENUITEM_SETTING(exciter_output,
-                     &global_settings.exciter_settings.output_gain,
-                     lowlatency_callback);
-    MAKE_MENU(exciter_menu, ID2P(LANG_EXCITER), NULL, Icon_NOICON,
-              &exciter_enabled, &exciter_scope,
-              &exciter_drive, &exciter_amount,
-              &exciter_ceil, &exciter_output);
 
 #ifdef HAVE_SPEAKER
     MENUITEM_SETTING(speaker_mode, &global_settings.speaker_mode, NULL);
@@ -367,7 +351,6 @@ MAKE_MENU(sound_settings, ID2P(LANG_SOUND_SETTINGS), NULL, Icon_Audio,
           ,&compressor_menu
           ,&bassboost_menu
           ,&crystalizer_menu
-          ,&exciter_menu
 #ifdef HAVE_SPEAKER
          ,&speaker_mode
 #endif

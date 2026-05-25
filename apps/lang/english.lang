@@ -312,106 +312,22 @@
   </voice>
 </phrase>
 <phrase>
+  id: LANG_BASSBOOST_SPREAD
+  desc: bassboost menu - harmonic spread to full band
+  user: core
+  <source>
+    *: "Harmonic Spread"
+  </source>
+  <dest>
+    *: "Harmonic Spread"
+  </dest>
+  <voice>
+    *: "Harmonic Spread"
+  </voice>
+</phrase>
+<phrase>
   id: LANG_BASSBOOST_OUTPUT
   desc: in sound settings
-  user: core
-  <source>
-    *: "Output Gain"
-  </source>
-  <dest>
-    *: "Output Gain"
-  </dest>
-  <voice>
-    *: "Output Gain"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_EXCITER
-  desc: in sound settings menu - harmonic exciter
-  user: core
-  <source>
-    *: "Exciter"
-  </source>
-  <dest>
-    *: "Exciter"
-  </dest>
-  <voice>
-    *: "Exciter"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_EXCITER_ENABLE
-  desc: exciter menu
-  user: core
-  <source>
-    *: "Enable Exciter"
-  </source>
-  <dest>
-    *: "Enable Exciter"
-  </dest>
-  <voice>
-    *: "Enable Exciter"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_EXCITER_SCOPE
-  desc: exciter menu - HPF cutoff frequency
-  user: core
-  <source>
-    *: "Scope"
-  </source>
-  <dest>
-    *: "Scope"
-  </dest>
-  <voice>
-    *: "Scope"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_EXCITER_DRIVE
-  desc: exciter menu - saturation drive amount
-  user: core
-  <source>
-    *: "Drive"
-  </source>
-  <dest>
-    *: "Drive"
-  </dest>
-  <voice>
-    *: "Drive"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_EXCITER_AMOUNT
-  desc: exciter menu - wet level
-  user: core
-  <source>
-    *: "Amount"
-  </source>
-  <dest>
-    *: "Amount"
-  </dest>
-  <voice>
-    *: "Amount"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_EXCITER_CEIL
-  desc: exciter menu - LPF ceiling frequency
-  user: core
-  <source>
-    *: "Ceiling"
-  </source>
-  <dest>
-    *: "Ceiling"
-  </dest>
-  <voice>
-    *: "Ceiling"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_EXCITER_OUTPUT
-  desc: exciter menu - output gain
   user: core
   <source>
     *: "Output Gain"
@@ -17713,6 +17629,20 @@
   </dest>
   <voice>
     *: "Intensity High"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_CRYSTALIZER_MIX
+  desc: crystalizer menu - wet/dry mix
+  user: core
+  <source>
+    *: "Mix"
+  </source>
+  <dest>
+    *: "Mix"
+  </dest>
+  <voice>
+    *: "Mix"
   </voice>
 </phrase>
 <phrase>

@@ -680,18 +680,6 @@ static void crystalizer_set_bool(bool val)
     dsp_set_crystalizer(&global_settings.crystalizer_settings);
 }
 
-static void exciter_set(int val)
-{
-    (void)val;
-    dsp_set_exciter(&global_settings.exciter_settings);
-}
-
-static void exciter_set_bool(bool val)
-{
-    (void)val;
-    dsp_set_exciter(&global_settings.exciter_settings);
-}
-
 static const char* db_format(char* buffer, size_t buffer_size, int value,
                       const char* unit)
 {
@@ -1982,7 +1970,7 @@ const struct settings_list settings[] = {
      INT_SETTING_NOWRAP(F_SOUNDSETTING, bassboost_settings.pre_gain,
                         LANG_BASSBOOST_PREGAIN, 0,
                         "bassboost pre gain", UNIT_DB, 0, 240,
-                        10, NULL, NULL, bassboost_set),
+                        5, NULL, NULL, bassboost_set),
      INT_SETTING_NOWRAP(F_SOUNDSETTING, bassboost_settings.knee_db,
                         LANG_BASSBOOST_KNEE, 6,
                         "bassboost knee", UNIT_DB, 0, 12,
@@ -2009,6 +1997,10 @@ const struct settings_list settings[] = {
                        LANG_BASSBOOST_MIX, 100,
                        "bassboost mix", UNIT_PERCENT, 0, 100,
                        5, NULL, NULL, bassboost_set),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, bassboost_settings.spread,
+                       LANG_BASSBOOST_SPREAD, 0,
+                       "bassboost spread", UNIT_PERCENT, 0, 100,
+                       5, NULL, NULL, bassboost_set),
     INT_SETTING_NOWRAP(F_SOUNDSETTING, bassboost_settings.output_gain,
                        LANG_BASSBOOST_OUTPUT, 0,
                        "bassboost output gain", UNIT_DB, -120, 120,
@@ -2021,44 +2013,23 @@ const struct settings_list settings[] = {
     INT_SETTING_NOWRAP(F_SOUNDSETTING, crystalizer_settings.intensity_low,
                        LANG_CRYSTALIZER_INTENSITY_LOW, 0,
                        "crystalizer intensity low", UNIT_DB, -240, 240,
-                       10, NULL, NULL, crystalizer_set),
+                       5, NULL, NULL, crystalizer_set),
     INT_SETTING_NOWRAP(F_SOUNDSETTING, crystalizer_settings.intensity_mid,
                        LANG_CRYSTALIZER_INTENSITY_MID, 0,
                        "crystalizer intensity mid", UNIT_DB, -240, 240,
-                       10, NULL, NULL, crystalizer_set),
+                       5, NULL, NULL, crystalizer_set),
     INT_SETTING_NOWRAP(F_SOUNDSETTING, crystalizer_settings.intensity_high,
                        LANG_CRYSTALIZER_INTENSITY_HIGH, 0,
                        "crystalizer intensity high", UNIT_DB, -240, 240,
-                       10, NULL, NULL, crystalizer_set),
+                       5, NULL, NULL, crystalizer_set),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, crystalizer_settings.mix,
+                       LANG_CRYSTALIZER_MIX, 100,
+                       "crystalizer mix", UNIT_PERCENT, 0, 100,
+                       5, NULL, NULL, crystalizer_set),
     INT_SETTING_NOWRAP(F_SOUNDSETTING, crystalizer_settings.output_gain,
                        LANG_CRYSTALIZER_OUTPUT, 0,
                        "crystalizer output gain", UNIT_DB, -120, 120,
                        5, NULL, NULL, crystalizer_set),
-
-    /* exciter */
-    OFFON_SETTING(F_SOUNDSETTING, exciter_settings.enabled,
-                  LANG_EXCITER_ENABLE, false,
-                  "exciter enable", exciter_set_bool),
-    INT_SETTING_NOWRAP(F_SOUNDSETTING, exciter_settings.scope_hz,
-                       LANG_EXCITER_SCOPE, 3000,
-                       "exciter scope", UNIT_INT, 500, 20000,
-                       500, NULL, NULL, exciter_set),
-    INT_SETTING_NOWRAP(F_SOUNDSETTING, exciter_settings.drive,
-                       LANG_EXCITER_DRIVE, 30,
-                       "exciter drive", UNIT_PERCENT, 0, 100,
-                       5, NULL, NULL, exciter_set),
-    INT_SETTING_NOWRAP(F_SOUNDSETTING, exciter_settings.amount,
-                       LANG_EXCITER_AMOUNT, 0,
-                       "exciter amount", UNIT_DB, 0, 120,
-                       5, NULL, NULL, exciter_set),
-    INT_SETTING_NOWRAP(F_SOUNDSETTING, exciter_settings.ceil_hz,
-                       LANG_EXCITER_CEIL, 0,
-                       "exciter ceiling", UNIT_INT, 0, 20000,
-                       500, NULL, NULL, exciter_set),
-    INT_SETTING_NOWRAP(F_SOUNDSETTING, exciter_settings.output_gain,
-                       LANG_EXCITER_OUTPUT, 0,
-                       "exciter output gain", UNIT_DB, -120, 120,
-                       5, NULL, NULL, exciter_set),
 
     /* compressor */
     INT_SETTING_NOWRAP(F_SOUNDSETTING, compressor_settings.threshold,
