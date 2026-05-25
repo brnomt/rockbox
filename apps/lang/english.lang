@@ -17519,3 +17519,87 @@
     *: "Drive"
   </voice>
 </phrase>
+<phrase>
+  id: LANG_CRYSTALIZER
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Crystalizer"
+  </source>
+  <dest>
+    *: "Crystalizer"
+  </dest>
+  <voice>
+    *: "Crystalizer"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_CRYSTALIZER_ENABLE
+  desc: crystalizer menu
+  user: core
+  <source>
+    *: "Enable"
+  </source>
+  <dest>
+    *: "Enable"
+  </dest>
+  <voice>
+    *: "Enable"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_CRYSTALIZER_INTENSITY_LOW
+  desc: crystalizer menu - low band intensity
+  user: core
+  <source>
+    *: "Intensity Low"
+  </source>
+  <dest>
+    *: "Intensity Low"
+  </dest>
+  <voice>
+    *: "Intensity Low"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_CRYSTALIZER_INTENSITY_MID
+  desc: crystalizer menu - mid band intensity
+  user: core
+  <source>
+    *: "Intensity Mid"
+  </source>
+  <dest>
+    *: "Intensity Mid"
+  </dest>
+  <voice>
+    *: "Intensity Mid"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_CRYSTALIZER_INTENSITY_HIGH
+  desc: crystalizer menu - high band intensity
+  user: core
+  <source>
+    *: "Intensity High"
+  </source>
+  <dest>
+    *: "Intensity High"
+  </dest>
+  <voice>
+    *: "Intensity High"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_CRYSTALIZER_OUTPUT
+  desc: crystalizer menu - output gain
+  user: core
+  <source>
+    *: "Output Gain"
+  </source>
+  <dest>
+    *: "Output Gain"
+  </dest>
+  <voice>
+    *: "Output Gain"
+  </voice>
+</phrase>

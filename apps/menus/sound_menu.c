@@ -274,6 +274,29 @@ static int timestretch_callback(int action,
                &bassboost_makeup, &bassboost_mix,
                &bassboost_outgain);
 
+    /* crystalizer menu */
+    MENUITEM_SETTING(crystalizer_enabled,
+                     &global_settings.crystalizer_settings.enabled,
+                     lowlatency_callback);
+    MENUITEM_SETTING(crystalizer_intensity_low,
+                     &global_settings.crystalizer_settings.intensity_low,
+                     lowlatency_callback);
+    MENUITEM_SETTING(crystalizer_intensity_mid,
+                     &global_settings.crystalizer_settings.intensity_mid,
+                     lowlatency_callback);
+    MENUITEM_SETTING(crystalizer_intensity_high,
+                     &global_settings.crystalizer_settings.intensity_high,
+                     lowlatency_callback);
+    MENUITEM_SETTING(crystalizer_output_gain,
+                     &global_settings.crystalizer_settings.output_gain,
+                     lowlatency_callback);
+    MAKE_MENU(crystalizer_menu, ID2P(LANG_CRYSTALIZER), NULL, Icon_NOICON,
+              &crystalizer_enabled,
+              &crystalizer_intensity_low,
+              &crystalizer_intensity_mid,
+              &crystalizer_intensity_high,
+              &crystalizer_output_gain);
+
 #ifdef HAVE_SPEAKER
     MENUITEM_SETTING(speaker_mode, &global_settings.speaker_mode, NULL);
 #endif
@@ -319,6 +342,7 @@ MAKE_MENU(sound_settings, ID2P(LANG_SOUND_SETTINGS), NULL, Icon_Audio,
 #endif
           ,&compressor_menu
           ,&bassboost_menu
+          ,&crystalizer_menu
 #ifdef HAVE_SPEAKER
          ,&speaker_mode
 #endif

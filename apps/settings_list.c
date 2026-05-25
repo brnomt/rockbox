@@ -668,6 +668,18 @@ static void bassboost_set_bool(bool val)
     dsp_set_bassboost(&global_settings.bassboost_settings);
 }
 
+static void crystalizer_set(int val)
+{
+    (void)val;
+    dsp_set_crystalizer(&global_settings.crystalizer_settings);
+}
+
+static void crystalizer_set_bool(bool val)
+{
+    (void)val;
+    dsp_set_crystalizer(&global_settings.crystalizer_settings);
+}
+
 static const char* db_format(char* buffer, size_t buffer_size, int value,
                       const char* unit)
 {
@@ -1987,6 +1999,27 @@ const struct settings_list settings[] = {
                        LANG_BASSBOOST_OUTPUT, 0,
                        "bassboost output gain", UNIT_DB, -120, 120,
                        5, NULL, NULL, bassboost_set),
+
+    /* crystalizer */
+    OFFON_SETTING(F_SOUNDSETTING, crystalizer_settings.enabled,
+                  LANG_CRYSTALIZER_ENABLE, false,
+                  "crystalizer enable", crystalizer_set_bool),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, crystalizer_settings.intensity_low,
+                       LANG_CRYSTALIZER_INTENSITY_LOW, 0,
+                       "crystalizer intensity low", UNIT_DB, -240, 240,
+                       10, NULL, NULL, crystalizer_set),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, crystalizer_settings.intensity_mid,
+                       LANG_CRYSTALIZER_INTENSITY_MID, 0,
+                       "crystalizer intensity mid", UNIT_DB, -240, 240,
+                       10, NULL, NULL, crystalizer_set),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, crystalizer_settings.intensity_high,
+                       LANG_CRYSTALIZER_INTENSITY_HIGH, 0,
+                       "crystalizer intensity high", UNIT_DB, -240, 240,
+                       10, NULL, NULL, crystalizer_set),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, crystalizer_settings.output_gain,
+                       LANG_CRYSTALIZER_OUTPUT, 0,
+                       "crystalizer output gain", UNIT_DB, -120, 120,
+                       5, NULL, NULL, crystalizer_set),
 
     /* compressor */
     INT_SETTING_NOWRAP(F_SOUNDSETTING, compressor_settings.threshold,

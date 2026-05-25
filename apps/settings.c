@@ -1088,6 +1088,7 @@ void settings_apply(bool read_disk)
 #endif
     dsp_set_compressor(&global_settings.compressor_settings);
     dsp_set_bassboost(&global_settings.bassboost_settings);
+    dsp_set_crystalizer(&global_settings.crystalizer_settings);
 
 #ifdef HAVE_SPDIF_POWER
     spdif_power_enable(global_settings.spdif_enable);
