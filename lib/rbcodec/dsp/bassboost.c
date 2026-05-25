@@ -65,13 +65,13 @@ static const int32_t db_table[64] = {
 };
 
 static struct bassboost_settings curr_set;
-static int32_t output_gain;
+static int32_t output_gain = UNITY;
 static int32_t gain_table[GAIN_TABLE_SIZE];
-static int32_t attca, attcb, rlsca, rlscb;
-static int32_t makeup_gain;
-static int32_t pre_gain_linear;
-static int32_t wet_mix, dry_mix;
-static int32_t drive_scale, drive_blend;
+static int32_t attca = UNITY, attcb, rlsca = UNITY, rlscb;
+static int32_t makeup_gain = UNITY;
+static int32_t pre_gain_linear = UNITY;
+static int32_t wet_mix, dry_mix = UNITY;
+static int32_t drive_scale = UNITY, drive_blend;
 static int32_t envelope_down[MAX_CH], envelope_up[MAX_CH];
 static struct dsp_filter lpf[2];
 
@@ -294,14 +294,14 @@ static FORCE_INLINE int32_t get_gain(int32_t sample, int frac_bits)
 
     if (sample < (1 << 17))
     {
-        int32_t frac = ((sample - (1 << 15)) / 3) << 16;
+        int32_t frac = (int32_t)(((int64_t)(sample - (1 << 15)) << 16) / 3);
         int32_t g64 = gain_table[64];
         int32_t g65 = gain_table[65];
         int32_t diff = g64 - g65;
         return g64 - (int32_t)(((int64_t)frac * (int64_t)diff) >> 31);
     }
 
-    return -1;
+    return gain_table[65];
 }
 
 static FORCE_INLINE int32_t apply_drive(int32_t x, int32_t scale, int32_t blend)
