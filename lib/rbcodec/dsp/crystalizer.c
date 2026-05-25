@@ -232,7 +232,7 @@ static bool crystalizer_update(struct dsp_config *dsp,
 
     curr_set = *settings;
 
-    setup_filters(300, 3000, fs);
+    setup_filters(60, 3000, fs);
 
     static const int band_indices[NUM_BANDS] = {0, 1, 2};
     (void)band_indices;
