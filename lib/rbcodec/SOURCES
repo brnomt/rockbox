@@ -6,7 +6,6 @@ dsp/channel_mode.c
 dsp/compressor.c
 dsp/bassboost.c
 dsp/crystalizer.c
-dsp/exciter.c
 dsp/crossfeed.c
 dsp/dsp_core.c
 dsp/pbe.c

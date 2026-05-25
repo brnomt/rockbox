@@ -72,6 +72,7 @@ static int32_t makeup_gain = UNITY;
 static int32_t pre_gain_linear = UNITY;
 static int32_t wet_mix, dry_mix = UNITY;
 static int32_t drive_scale = UNITY, drive_blend;
+static int32_t spread_gain;
 static int32_t envelope_down[MAX_CH], envelope_up[MAX_CH];
 static struct dsp_filter lpf[2];
 
@@ -351,7 +352,9 @@ static void bassboost_process(struct dsp_proc_entry *this,
 
             int32_t hp = x - lp;
 
-            lp = apply_drive(lp, drive_scale, drive_blend);
+            int32_t driven = apply_drive(lp, drive_scale, drive_blend);
+
+            lp = driven;
 
             int32_t sidechain = FRACMUL_SHL(lp, pre_gain_linear, 7);
             int32_t abs_lp = (sidechain < 0) ? -(sidechain + 1) : sidechain;
@@ -381,6 +384,9 @@ static void bassboost_process(struct dsp_proc_entry *this,
             int32_t lp_out = FRACMUL_SHL(lp, dry_mix + wet_gain, 7);
 
             int32_t merged = hp + lp_out;
+
+            if (spread_gain > 0)
+                merged += FRACMUL_SHL(lp, spread_gain, 7);
 
             if (ch == 0) outL = merged;
             else         outR = merged;
@@ -474,6 +480,11 @@ static bool bassboost_update(struct dsp_config *dsp,
     if (mix > 100) mix = 100;
     wet_mix = ((int64_t)mix * UNITY) / 100;
     dry_mix = UNITY - wet_mix;
+
+    int sp = settings->spread;
+    if (sp < 0) sp = 0;
+    if (sp > 100) sp = 100;
+    spread_gain = ((int64_t)sp * UNITY) / 100;
 
     if (settings->output_gain != 0)
     {

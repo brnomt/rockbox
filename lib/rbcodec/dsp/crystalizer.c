@@ -52,7 +52,8 @@
 #define NUM_BANDS 3
 
 static struct crystalizer_settings curr_set;
-static int32_t output_gain;
+static int32_t output_gain = UNITY;
+static int32_t wet_mix, dry_mix = UNITY;
 
 static int32_t intensity_linear[NUM_BANDS];
 
@@ -198,8 +199,11 @@ static void crystalizer_process(struct dsp_proc_entry *this,
                 }
             }
 
-            if (ch == 0) outL = sum;
-            else         outR = sum;
+            int32_t merged = FRACMUL_SHL(x, dry_mix, 7)
+                           + FRACMUL_SHL(sum, wet_mix, 7);
+
+            if (ch == 0) outL = merged;
+            else         outR = merged;
         }
 
         if (num_ch == 1) outR = outL;
@@ -267,6 +271,12 @@ static bool crystalizer_update(struct dsp_config *dsp,
     {
         output_gain = UNITY;
     }
+
+    int mix = settings->mix;
+    if (mix < 0) mix = 0;
+    if (mix > 100) mix = 100;
+    wet_mix = ((int64_t)mix * UNITY) / 100;
+    dry_mix = UNITY - wet_mix;
 
     return true;
 }
