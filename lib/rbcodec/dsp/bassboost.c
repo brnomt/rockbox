@@ -76,7 +76,7 @@ static int32_t envelope_down[MAX_CH], envelope_up[MAX_CH];
 static struct dsp_filter lpf[2];
 
 static const int ratio_down_map[6] = {0, 200, 400, 600, 1000, LIMIT_PCT};
-static const int ratio_up_map[4] = {0, 25, 50, 75};
+static const int ratio_up_map[6] = {0, 10, 15, 25, 50, 75};
 
 static int32_t get_tc_coeff(int32_t rc_ms, int32_t fs)
 {
@@ -165,7 +165,11 @@ static void build_gain_table(int threshold, int ratio_down_pct, int ratio_up_pct
 
     for (int i = 0; i < 64; i++)
     {
-        int32_t this_db = -db_table[i];
+        int32_t this_db;
+        if (i == 0)
+            this_db = -db_table[1];
+        else
+            this_db = -db_table[i];
         int32_t gain_db = 0;
 
         int32_t knee_bottom = thresh - knee_half;
@@ -412,7 +416,7 @@ static bool bassboost_update(struct dsp_config *dsp,
     int ratio_down_val = (rd >= 0 && rd < 6) ? ratio_down_map[rd] : 400;
 
     int ru = settings->ratio_up;
-    int ratio_up_val = (ru >= 0 && ru < 4) ? ratio_up_map[ru] : 50;
+    int ratio_up_val = (ru >= 0 && ru < 6) ? ratio_up_map[ru] : 50;
 
     setup_lpf(settings->crossover_hz, fs);
     build_gain_table(settings->threshold, ratio_down_val, ratio_up_val,
