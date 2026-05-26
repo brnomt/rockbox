@@ -284,6 +284,48 @@
   </voice>
 </phrase>
 <phrase>
+  id: LANG_BASSBOOST_UP_ATTACK
+  desc: bassboost menu - upward envelope attack time
+  user: core
+  <source>
+    *: "Up Attack"
+  </source>
+  <dest>
+    *: "Up Attack"
+  </dest>
+  <voice>
+    *: "Up Attack"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BASSBOOST_UP_RELEASE
+  desc: bassboost menu - upward envelope release time
+  user: core
+  <source>
+    *: "Up Release"
+  </source>
+  <dest>
+    *: "Up Release"
+  </dest>
+  <voice>
+    *: "Up Release"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BASSBOOST_MAX_UP_GAIN
+  desc: bassboost menu - maximum upward gain ceiling
+  user: core
+  <source>
+    *: "Max Up Gain"
+  </source>
+  <dest>
+    *: "Max Up Gain"
+  </dest>
+  <voice>
+    *: "Max Up Gain"
+  </voice>
+</phrase>
+<phrase>
   id: LANG_BASSBOOST_MAKEUP
   desc: in sound settings
   user: core

@@ -256,6 +256,15 @@ static int timestretch_callback(int action,
      MENUITEM_SETTING(bassboost_release,
                       &global_settings.bassboost_settings.release_ms,
                       lowlatency_callback);
+     MENUITEM_SETTING(bassboost_up_attack,
+                      &global_settings.bassboost_settings.up_attack_ms,
+                      lowlatency_callback);
+     MENUITEM_SETTING(bassboost_up_release,
+                      &global_settings.bassboost_settings.up_release_ms,
+                      lowlatency_callback);
+     MENUITEM_SETTING(bassboost_max_up_gain,
+                      &global_settings.bassboost_settings.max_up_gain_db,
+                      lowlatency_callback);
      MENUITEM_SETTING(bassboost_makeup,
                       &global_settings.bassboost_settings.makeup_gain_db,
                       lowlatency_callback);
@@ -277,6 +286,8 @@ static int timestretch_callback(int action,
                &bassboost_ratio_up,
                &bassboost_pregain, &bassboost_knee, &bassboost_drive,
                &bassboost_attack, &bassboost_release,
+               &bassboost_up_attack, &bassboost_up_release,
+               &bassboost_max_up_gain,
                &bassboost_makeup, &bassboost_mix,
                &bassboost_spread, &bassboost_suboctave,
                &bassboost_outgain);
