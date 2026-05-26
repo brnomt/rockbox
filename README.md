@@ -11,7 +11,9 @@ Single-band sub-bass processor with:
 - **Adjustable knee** (0–12 dB) for smooth transition
 - **Pre-gain** (0–24 dB) to drive the compressor
 - **Drive / saturation** (0–100%): cubic soft clip `(3x−x³)/2`, up to 4× input scaling
-- **Dual envelope follower**: independent attack/release for up/down
+- **Dual envelope follower**: independent attack/release for up and down paths
+- **Max Up Gain** (0–24 dB) OTT-style ceiling on upward expansion
+- **Up Attack / Up Release** (1–500 ms) separate time constants for upward envelope
 - **Makeup gain** (0–24 dB) post-compression
 - **Mix** (0–100%) wet/dry blend
 - **Harmonic spread** (0–100%): injects saturated bass harmonics into full-band output (psychoacoustic "missing fundamental" effect — the brain fills in deep bass from harmonics reaching the mids)
@@ -28,6 +30,9 @@ Single-band sub-bass processor with:
 | Up ratio | 0.5:1 |
 | Attack | 5 ms |
 | Release | 150 ms |
+| Up Attack | 1 ms |
+| Up Release | 20 ms |
+| Max Up Gain | 14 dB |
 | Knee | 6 dB |
 | Pre-gain | 0 dB |
 | Drive | 0% |
@@ -85,8 +90,11 @@ On device: **Settings → Sound Settings → Bassboost / Crystalizer**
 - **Pre-gain** (0–24 dB, step 0.5)
 - **Knee** (0–12 dB, step 1)
 - **Drive** (0–100%, step 5)
-- **Attack** (1–500 ms, step 5)
-- **Release** (10–2000 ms, step 10)
+- **Attack** (1–500 ms, step 5) — down envelope attack
+- **Release** (10–2000 ms, step 10) — down envelope release
+- **Up Attack** (1–500 ms, step 5) — up envelope attack
+- **Up Release** (1–500 ms, step 5) — up envelope release
+- **Max Up Gain** (0–24 dB, step 0.5) — OTT-style upward ceiling
 - **Makeup** (0–24 dB, step 0.5)
 - **Mix** (0–100%, step 5)
 - **Harmonic Spread** (0–100%, step 5)
@@ -129,6 +137,7 @@ apps/menus/sound_menu.c             — Bassboost + Crystalizer submenus
 apps/settings.c                     — dsp_set_bassboost() / dsp_set_crystalizer()
 apps/settings.h                     — bassboost_settings + crystalizer_settings
 apps/settings_list.c                — All setting entries + callbacks
+apps/onplay.c                       — Go to Album item in WPS context menu
 lib/rbcodec/SOURCES                 — bassboost.c + crystalizer.c
 lib/rbcodec/dsp/dsp_proc_database.h — BASSBOOST + CRYSTALIZER registered
 lib/rbcodec/dsp/dsp_proc_settings.h — Includes both headers
@@ -159,3 +168,13 @@ All DSP math is **fixed-point integer** (S7.24 / S15.16 / Q31) targeting ARM926E
 - **Cubic soft-clip**: `(3x−x³)/2`, input scaled up to 4×
 - **Sub Octave**: zero-crossing octaver — toggles polarity at each sign flip, then LR2 LPF@40Hz
 - **Crystalizer 2-band**: LR2 series — LP@60 → LP@3000 = band 0, remainder = band 1
+
+## WPS Context Menu — Go to Album
+
+New item in the WPS context menu (Select button on iPod while playing):
+
+- **Go to Album** — navigates directly to the current track's folder in the file browser
+- Uses `audio_current_track()->path` to locate the file
+- Skips the ID3 info screen, jumps straight to directory browsing
+
+Implementation: `apps/onplay.c` — `go_to_album()` function + `go_to_album_item` MENUITEM_FUNCTION
