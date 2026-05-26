@@ -68,6 +68,8 @@ static struct bassboost_settings curr_set;
 static int32_t output_gain = UNITY;
 static int32_t gain_table[GAIN_TABLE_SIZE];
 static int32_t attca = UNITY, attcb, rlsca = UNITY, rlscb;
+static int32_t up_attca = UNITY, up_attcb, up_rlsca = UNITY, up_rlscb;
+static int32_t max_up_gain;
 static int32_t makeup_gain = UNITY;
 static int32_t pre_gain_linear = UNITY;
 static int32_t wet_mix, dry_mix = UNITY;
@@ -380,6 +382,9 @@ static void bassboost_process(struct dsp_proc_entry *this,
             int32_t target_down = (target_gain <= UNITY) ? target_gain : UNITY;
             int32_t target_up   = (target_gain >= UNITY) ? target_gain : UNITY;
 
+            if (target_up > max_up_gain)
+                target_up = max_up_gain;
+
             if (target_down <= envelope_down[ch])
                 envelope_down[ch] = FRACMUL_SHL(envelope_down[ch], attcb, 7)
                                   + FRACMUL_SHL(target_down, attca, 7);
@@ -388,11 +393,11 @@ static void bassboost_process(struct dsp_proc_entry *this,
                                   + FRACMUL_SHL(target_down, rlsca, 7);
 
             if (target_up >= envelope_up[ch])
-                envelope_up[ch] = FRACMUL_SHL(envelope_up[ch], attcb, 7)
-                                + FRACMUL_SHL(target_up, attca, 7);
+                envelope_up[ch] = FRACMUL_SHL(envelope_up[ch], up_attcb, 7)
+                                + FRACMUL_SHL(target_up, up_attca, 7);
             else
-                envelope_up[ch] = FRACMUL_SHL(envelope_up[ch], rlscb, 7)
-                                + FRACMUL_SHL(target_up, rlsca, 7);
+                envelope_up[ch] = FRACMUL_SHL(envelope_up[ch], up_rlscb, 7)
+                                + FRACMUL_SHL(target_up, up_rlsca, 7);
 
             int32_t gain = FRACMUL_SHL(envelope_down[ch], envelope_up[ch], 7);
             gain = FRACMUL_SHL(gain, makeup_gain, 7);
@@ -470,6 +475,29 @@ static bool bassboost_update(struct dsp_config *dsp,
     attcb = UNITY - a;
     rlsca = r;
     rlscb = UNITY - r;
+
+    int up_at_ms = settings->up_attack_ms;
+    int up_rl_ms = settings->up_release_ms;
+
+    int32_t ua = (up_at_ms > 0) ? get_tc_coeff(up_at_ms, fs) : UNITY;
+    int32_t ur = get_tc_coeff(up_rl_ms, fs);
+
+    up_attca = ua;
+    up_attcb = UNITY - ua;
+    up_rlsca = ur;
+    up_rlscb = UNITY - ur;
+
+    if (settings->max_up_gain_db > 0)
+    {
+        int32_t ug_db_int = settings->max_up_gain_db / 10;
+        int32_t ug_db_frac = settings->max_up_gain_db % 10;
+        int32_t ug_s16 = (ug_db_int << 16) + (ug_db_frac * 6554);
+        max_up_gain = fp_factor(ug_s16, 16) << 8;
+    }
+    else
+    {
+        max_up_gain = UNITY;
+    }
 
     if (settings->pre_gain > 0)
     {

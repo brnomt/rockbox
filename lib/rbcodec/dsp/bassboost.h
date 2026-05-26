@@ -41,8 +41,11 @@ struct bassboost_settings
     int threshold;          /* dB value, 0 = off, -60 to 0 (default -18) */
     int ratio_down;         /* 0=off,1=2:1,2=4:1,3=6:1,4=10:1,5=limit (default 2=4:1) */
     int ratio_up;           /* 0=off,1=0.25:1,2=0.5:1,3=0.75:1 (default 2=0.5:1) */
-    int attack_ms;          /* 1-500 (default 5) */
-    int release_ms;         /* 10-2000 (default 150) */
+    int attack_ms;          /* 1-500, down envelope attack (default 5) */
+    int release_ms;         /* 10-2000, down envelope release (default 150) */
+    int up_attack_ms;       /* 1-500, up envelope attack (default 1) */
+    int up_release_ms;      /* 1-500, up envelope release (default 20) */
+    int max_up_gain_db;     /* 0-240, 0.1 dB up-gain ceiling (default 140 = 14dB) */
     int knee_db;            /* 0-12 (default 6) */
     int drive;              /* 0-100 saturation amount (default 0) */
     int makeup_gain_db;     /* 0-240, 0.1 dB (default 60 = +6dB) */
