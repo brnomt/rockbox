@@ -1021,6 +1021,22 @@ static bool onplay_load_plugin(void *param)
     return false;
 }
 
+static int go_to_album(void)
+{
+    struct mp3entry *id3 = audio_current_track();
+    if (!id3 || !id3->path)
+        return 0;
+
+    strmemccpy(global_status.browse_last_folder, id3->path,
+               sizeof global_status.browse_last_folder);
+    onplay_result = ONPLAY_REVEAL_FILE;
+    return GO_TO_FILEBROWSER;
+}
+MENUITEM_FUNCTION(go_to_album_item, MENU_FUNC_CHECK_RETVAL,
+                  ID2P(LANG_GO_TO_ALBUM),
+                  go_to_album, NULL, Icon_file_view_menu);
+
+
 static int reveal(void)
 {
 #ifdef HAVE_TAGCACHE
@@ -1271,6 +1287,8 @@ MAKE_ONPLAYMENU( wps_onplay_menu, ID2P(LANG_ONPLAY_MENU_TITLE),
 #endif
            &bookmark_menu,
            &view_cue_item,
+           &browse_id3_item,
+           &go_to_album_item,
 #ifndef HAVE_HOTKEY
            &context_item_0,
 #endif

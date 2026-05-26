@@ -17380,6 +17380,20 @@
   </voice>
 </phrase>
 <phrase>
+  id: LANG_GO_TO_ALBUM
+  desc: WPS context menu - browse to current track's folder
+  user: core
+  <source>
+    *: "Go to Album"
+  </source>
+  <dest>
+    *: "Go to Album"
+  </dest>
+  <voice>
+    *: "Go to Album"
+  </voice>
+</phrase>
+<phrase>
   id: LANG_CHANNEL_SWAP
   desc: in sound_settings
   user: core
