@@ -73,8 +73,11 @@ static int32_t pre_gain_linear = UNITY;
 static int32_t wet_mix, dry_mix = UNITY;
 static int32_t drive_scale = UNITY, drive_blend;
 static int32_t spread_gain;
+static int32_t sub_octave_gain;
 static int32_t envelope_down[MAX_CH], envelope_up[MAX_CH];
 static struct dsp_filter lpf[2];
+static struct dsp_filter sub_lpf[2];
+static int32_t sub_prev_sign[MAX_CH], sub_toggle[MAX_CH];
 
 static const int ratio_down_map[6] = {0, 200, 400, 600, 1000, LIMIT_PCT};
 static const int ratio_up_map[6] = {0, 10, 15, 25, 50, 75};
@@ -153,10 +156,24 @@ static void setup_lpf(int cutoff_hz, unsigned long fs)
     butterworth_coefs(phase, false, &lpf[1]);
 }
 
+static void setup_sub_lpf(int cutoff_hz, unsigned long fs)
+{
+    unsigned long phase = fp_div(cutoff_hz, fs, 32);
+    butterworth_coefs(phase, false, &sub_lpf[0]);
+    butterworth_coefs(phase, false, &sub_lpf[1]);
+}
+
 static void flush_lpf(void)
 {
     filter_flush(&lpf[0]);
     filter_flush(&lpf[1]);
+    filter_flush(&sub_lpf[0]);
+    filter_flush(&sub_lpf[1]);
+    for (int ch = 0; ch < MAX_CH; ch++)
+    {
+        sub_prev_sign[ch] = 0;
+        sub_toggle[ch] = 0;
+    }
 }
 
 static void build_gain_table(int threshold, int ratio_down_pct, int ratio_up_pct, int knee_db)
@@ -388,6 +405,20 @@ static void bassboost_process(struct dsp_proc_entry *this,
             if (spread_gain > 0)
                 merged += FRACMUL_SHL(lp, spread_gain, 7);
 
+            if (sub_octave_gain > 0)
+            {
+                int32_t cur_sign = (driven >= 0) ? 1 : -1;
+                if (cur_sign > 0 && sub_prev_sign[ch] < 0)
+                    sub_toggle[ch] = !sub_toggle[ch];
+                sub_prev_sign[ch] = cur_sign;
+
+                int32_t abs_driven = (driven < 0) ? -driven : driven;
+                int32_t oct = sub_toggle[ch] ? abs_driven : -abs_driven;
+                oct = biquad_step(&sub_lpf[1], ch,
+                       biquad_step(&sub_lpf[0], ch, oct));
+                merged += FRACMUL_SHL(oct, sub_octave_gain, 7);
+            }
+
             if (ch == 0) outL = merged;
             else         outR = merged;
         }
@@ -425,6 +456,7 @@ static bool bassboost_update(struct dsp_config *dsp,
     int ratio_up_val = (ru >= 0 && ru < 6) ? ratio_up_map[ru] : 50;
 
     setup_lpf(settings->crossover_hz, fs);
+    setup_sub_lpf(40, fs);
     build_gain_table(settings->threshold, ratio_down_val, ratio_up_val,
                      settings->knee_db);
 
@@ -485,6 +517,11 @@ static bool bassboost_update(struct dsp_config *dsp,
     if (sp < 0) sp = 0;
     if (sp > 100) sp = 100;
     spread_gain = ((int64_t)sp * UNITY) / 100;
+
+    int sub = settings->sub_octave;
+    if (sub < 0) sub = 0;
+    if (sub > 100) sub = 100;
+    sub_octave_gain = ((int64_t)sub * UNITY) / 100;
 
     if (settings->output_gain != 0)
     {

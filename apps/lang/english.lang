@@ -326,6 +326,20 @@
   </voice>
 </phrase>
 <phrase>
+  id: LANG_BASSBOOST_SUB
+  desc: bassboost menu - sub-harmonic octaver
+  user: core
+  <source>
+    *: "Sub Octave"
+  </source>
+  <dest>
+    *: "Sub Octave"
+  </dest>
+  <voice>
+    *: "Sub Octave"
+  </voice>
+</phrase>
+<phrase>
   id: LANG_BASSBOOST_OUTPUT
   desc: in sound settings
   user: core

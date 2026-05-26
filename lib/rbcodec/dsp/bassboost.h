@@ -48,6 +48,7 @@ struct bassboost_settings
     int makeup_gain_db;     /* 0-240, 0.1 dB (default 60 = +6dB) */
     int mix;                /* 0-100% (default 100) */
     int spread;              /* 0-100% harmonic spread to full-band (default 0) */
+    int sub_octave;           /* 0-100% sub-harmonic octaver (default 0) */
     int output_gain;         /* -120 to +120, 0.1 dB (default 0) */
 };
 

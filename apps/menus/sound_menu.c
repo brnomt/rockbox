@@ -265,6 +265,9 @@ static int timestretch_callback(int action,
      MENUITEM_SETTING(bassboost_spread,
                       &global_settings.bassboost_settings.spread,
                       lowlatency_callback);
+     MENUITEM_SETTING(bassboost_suboctave,
+                      &global_settings.bassboost_settings.sub_octave,
+                      lowlatency_callback);
      MENUITEM_SETTING(bassboost_outgain,
                       &global_settings.bassboost_settings.output_gain,
                       lowlatency_callback);
@@ -275,7 +278,7 @@ static int timestretch_callback(int action,
                &bassboost_pregain, &bassboost_knee, &bassboost_drive,
                &bassboost_attack, &bassboost_release,
                &bassboost_makeup, &bassboost_mix,
-               &bassboost_spread,
+               &bassboost_spread, &bassboost_suboctave,
                &bassboost_outgain);
 
     /* crystalizer menu */
