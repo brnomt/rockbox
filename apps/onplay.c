@@ -982,28 +982,20 @@ static bool onplay_load_plugin(void *param)
     return false;
 }
 
-static char *onplay_get_plugin_name(bool reload)
+static int go_to_album(void)
 {
-    static char ctx_plugin_namebuf[OPEN_PLUGIN_NAMESZ] = "";
-    if (reload || ctx_plugin_namebuf[0] == '\0')
-    {
-        int res = open_plugin_load_entry(ID2P(LANG_ONPLAY_MENU_TITLE));
-        if (res >= 0 || res ==  OPEN_PLUGIN_NEEDS_FLUSHED)
-        {
-            struct open_plugin_entry_t *op = open_plugin_get_entry();
-            strmemccpy(ctx_plugin_namebuf, op->name, sizeof(ctx_plugin_namebuf));
-        }
-        else
-        {
-            strmemccpy(ctx_plugin_namebuf, str(LANG_OPEN_PLUGIN),
-                       sizeof(ctx_plugin_namebuf));
-        }
-    }
+    struct mp3entry *id3 = audio_current_track();
+    if (!id3 || !id3->path)
+        return 0;
 
-    if (get_current_activity() == ACTIVITY_SETTINGS)
-        return str(LANG_OPEN_PLUGIN);
-    return ctx_plugin_namebuf;
+    strmemccpy(global_status.browse_last_folder, id3->path,
+               sizeof global_status.browse_last_folder);
+    onplay_result = ONPLAY_REVEAL_FILE;
+    return GO_TO_FILEBROWSER;
 }
+MENUITEM_FUNCTION(go_to_album_item, MENU_FUNC_CHECK_RETVAL,
+                  ID2P(LANG_GO_TO_ALBUM),
+                  go_to_album, NULL, Icon_file_view_menu);
 
 static int reveal(void)
 {
@@ -1255,6 +1247,8 @@ MAKE_ONPLAYMENU( wps_onplay_menu, ID2P(LANG_ONPLAY_MENU_TITLE),
 #endif
            &bookmark_menu,
            &view_cue_item,
+           &browse_id3_item,
+           &go_to_album_item,
 #ifndef HAVE_HOTKEY
            &context_item_0,
 #endif
