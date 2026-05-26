@@ -8,20 +8,16 @@
  * Crystalizer - fixed-point multiband transient enhancer
  *
  * Signal flow:
- *   Input → LR2 crossover network (3 bands) → 2nd-derivative enhancement
- *       → sum bands → output gain
+ *   Input → LR2 crossover (60Hz / 3000Hz) → 2nd-derivative enhancement
+ *       → mix wet/dry → output gain
  *
  * Bands:
- *   Low:  0 - crossover_low    Hz
- *   Mid:  crossover_low - crossover_mid Hz
- *   High: crossover_mid+       Hz
+ *   Low:   60 - 3000 Hz
+ *   High:  3000+ Hz
  *
  * For each band, the backward-difference second derivative is computed
  * sample-by-sample: d2[n] = x[n] - 2*x[n-1] + x[n-2].
  * Enhanced output = x[n] + intensity * d2[n].
- *
- * This sharpens transients (peaks and onsets) by boosting the curvature
- * of the waveform, following the EasyEffects Crystalizer approach.
  *
  * Copyright (C) 2024
  *
@@ -49,7 +45,7 @@
 
 #define UNITY (1L << 24)
 #define MAX_CH 2
-#define NUM_BANDS 3
+#define NUM_BANDS 2
 
 static struct crystalizer_settings curr_set;
 static int32_t output_gain = UNITY;
@@ -57,11 +53,9 @@ static int32_t wet_mix, dry_mix = UNITY;
 
 static int32_t intensity_linear[NUM_BANDS];
 
-/* Crossover filters: LR2 at low_cut and mid_cut */
 static struct dsp_filter lpf_low[2];
 static struct dsp_filter lpf_mid[2];
 
-/* Per-band per-channel history for backward second derivative */
 static int32_t band_x1[NUM_BANDS][MAX_CH];
 static int32_t band_x2[NUM_BANDS][MAX_CH];
 
@@ -175,9 +169,8 @@ static void crystalizer_process(struct dsp_proc_entry *this,
             int32_t hp_mid = hp_low - lp_mid;
 
             int32_t bands[NUM_BANDS];
-            bands[0] = lp_low;
-            bands[1] = lp_mid;
-            bands[2] = hp_mid;
+            bands[0] = lp_low + lp_mid;
+            bands[1] = hp_mid;
 
             int32_t sum = 0;
 
@@ -234,18 +227,10 @@ static bool crystalizer_update(struct dsp_config *dsp,
 
     setup_filters(60, 3000, fs);
 
-    static const int band_indices[NUM_BANDS] = {0, 1, 2};
-    (void)band_indices;
-
     for (int b = 0; b < NUM_BANDS; b++)
     {
-        int val;
-        switch (b)
-        {
-        case 0: val = settings->intensity_low;  break;
-        case 1: val = settings->intensity_mid;  break;
-        default: val = settings->intensity_high; break;
-        }
+        int val = (b == 0) ? settings->intensity_mid
+                           : settings->intensity_high;
 
         if (val != 0)
         {

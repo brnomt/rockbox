@@ -17604,20 +17604,6 @@
   </voice>
 </phrase>
 <phrase>
-  id: LANG_CRYSTALIZER_INTENSITY_LOW
-  desc: crystalizer menu - low band intensity
-  user: core
-  <source>
-    *: "Intensity Low"
-  </source>
-  <dest>
-    *: "Intensity Low"
-  </dest>
-  <voice>
-    *: "Intensity Low"
-  </voice>
-</phrase>
-<phrase>
   id: LANG_CRYSTALIZER_INTENSITY_MID
   desc: crystalizer menu - mid band intensity
   user: core
