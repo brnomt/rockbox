@@ -32,7 +32,6 @@
 struct crystalizer_settings
 {
     bool enabled;
-    int intensity_low;       /* -240 to +240, 0.1 dB (default 0) */
     int intensity_mid;       /* -240 to +240, 0.1 dB (default 0) */
     int intensity_high;      /* -240 to +240, 0.1 dB (default 0) */
     int output_gain;         /* -120 to +120, 0.1 dB (default 0) */

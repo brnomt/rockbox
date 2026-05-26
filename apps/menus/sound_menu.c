@@ -285,24 +285,20 @@ static int timestretch_callback(int action,
     MENUITEM_SETTING(crystalizer_enabled,
                      &global_settings.crystalizer_settings.enabled,
                      lowlatency_callback);
-    MENUITEM_SETTING(crystalizer_intensity_low,
-                     &global_settings.crystalizer_settings.intensity_low,
-                     lowlatency_callback);
     MENUITEM_SETTING(crystalizer_intensity_mid,
                      &global_settings.crystalizer_settings.intensity_mid,
                      lowlatency_callback);
     MENUITEM_SETTING(crystalizer_intensity_high,
                      &global_settings.crystalizer_settings.intensity_high,
                      lowlatency_callback);
-    MENUITEM_SETTING(crystalizer_output_gain,
-                     &global_settings.crystalizer_settings.output_gain,
-                     lowlatency_callback);
     MENUITEM_SETTING(crystalizer_mix,
                      &global_settings.crystalizer_settings.mix,
                      lowlatency_callback);
+    MENUITEM_SETTING(crystalizer_output_gain,
+                     &global_settings.crystalizer_settings.output_gain,
+                     lowlatency_callback);
     MAKE_MENU(crystalizer_menu, ID2P(LANG_CRYSTALIZER), NULL, Icon_NOICON,
               &crystalizer_enabled,
-              &crystalizer_intensity_low,
               &crystalizer_intensity_mid,
               &crystalizer_intensity_high,
               &crystalizer_mix,
