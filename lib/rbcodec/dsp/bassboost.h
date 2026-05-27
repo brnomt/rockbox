@@ -5,17 +5,17 @@
  *   Jukebox    |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
  *                     \/            \/     \/    \/            \/
  *
- * Bass booster - single-band compressor for low frequencies
+ * Bass booster - constant aggressive sub-bass thump
  * Fixed-point implementation for ARM targets (iPod Classic 6/7)
  *
  * Signal flow:
- *   Input → LR2 LPF (crossover) → Bass band → Drive/Saturation
- *       → Pre-gain (detector) → Compress (up + down) → Mix → Output
+ *   Input → Dry path (full-band)
+ *         → Low-shelf filter (boost, ~80-100Hz) → Soft-clip → Wet path
+ *       → Mix dry + wet → Output gain → Output
  *
- * Upward expansion: boosts quiet sub-bass content toward threshold
- * Downward compression: tames peaks above threshold
- * Dual envelope follower: separate attack/release for each direction
- * Drive: cubic soft-clip for audible harmonic saturation
+ * Two-path architecture: the low-shelf path provides always-on, aggressive
+ * sub-bass with a cubic soft-clipper for density. The dry path retains
+ * mids/highs clarity. No ducking, no upward expander behavior.
  *
  * Copyright (C) 2024
  *
@@ -36,22 +36,10 @@
 struct bassboost_settings
 {
     bool enabled;
-    int crossover_hz;       /* Hz, low-pass cutoff (default 120) */
-    int pre_gain;           /* 0-240, 0.1 dB boost before envelope detection (default 0) */
-    int threshold;          /* dB value, 0 = off, -60 to 0 (default -18) */
-    int ratio_down;         /* 0=off,1=2:1,2=4:1,3=6:1,4=10:1,5=limit (default 2=4:1) */
-    int ratio_up;           /* 0=off,1=0.25:1,2=0.5:1,3=0.75:1 (default 2=0.5:1) */
-    int attack_ms;          /* 1-500, down envelope attack (default 5) */
-    int release_ms;         /* 10-2000, down envelope release (default 150) */
-    int up_attack_ms;       /* 1-500, up envelope attack (default 1) */
-    int up_release_ms;      /* 1-500, up envelope release (default 20) */
-    int max_up_gain_db;     /* 0-240, 0.1 dB up-gain ceiling (default 140 = 14dB) */
-    int knee_db;            /* 0-12 (default 6) */
+    int crossover_hz;       /* Hz, low-pass cutoff (default 80) */
+    int sub_bass_gain;      /* 0-240, 0.1 dB fixed bass boost (default 120 = +12 dB) */
     int drive;              /* 0-100 saturation amount (default 0) */
-    int makeup_gain_db;     /* 0-240, 0.1 dB (default 60 = +6dB) */
     int mix;                /* 0-100% (default 100) */
-    int spread;              /* 0-100% harmonic spread to full-band (default 0) */
-    int sub_octave;           /* 0-100% sub-harmonic octaver (default 0) */
     int output_gain;         /* -120 to +120, 0.1 dB (default 0) */
 };
 
