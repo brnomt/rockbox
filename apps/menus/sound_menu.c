@@ -229,67 +229,22 @@ static int timestretch_callback(int action,
     MENUITEM_SETTING(bassboost_enabled,
                      &global_settings.bassboost_settings.enabled,
                      lowlatency_callback);
+    MENUITEM_SETTING(bassboost_ott_mode,
+                     &global_settings.bassboost_settings.ott_mode,
+                     lowlatency_callback);
     MENUITEM_SETTING(bassboost_crossover,
                      &global_settings.bassboost_settings.crossover_hz,
                      lowlatency_callback);
-     MENUITEM_SETTING(bassboost_threshold,
-                      &global_settings.bassboost_settings.threshold,
-                      lowlatency_callback);
-     MENUITEM_SETTING(bassboost_ratio_down,
-                      &global_settings.bassboost_settings.ratio_down,
-                      lowlatency_callback);
-     MENUITEM_SETTING(bassboost_ratio_up,
-                      &global_settings.bassboost_settings.ratio_up,
-                      lowlatency_callback);
-     MENUITEM_SETTING(bassboost_pregain,
-                      &global_settings.bassboost_settings.pre_gain,
-                      lowlatency_callback);
-     MENUITEM_SETTING(bassboost_knee,
-                      &global_settings.bassboost_settings.knee_db,
-                      lowlatency_callback);
-     MENUITEM_SETTING(bassboost_drive,
-                      &global_settings.bassboost_settings.drive,
-                      lowlatency_callback);
-     MENUITEM_SETTING(bassboost_attack,
-                      &global_settings.bassboost_settings.attack_ms,
-                      lowlatency_callback);
-     MENUITEM_SETTING(bassboost_release,
-                      &global_settings.bassboost_settings.release_ms,
-                      lowlatency_callback);
-     MENUITEM_SETTING(bassboost_up_attack,
-                      &global_settings.bassboost_settings.up_attack_ms,
-                      lowlatency_callback);
-     MENUITEM_SETTING(bassboost_up_release,
-                      &global_settings.bassboost_settings.up_release_ms,
-                      lowlatency_callback);
-     MENUITEM_SETTING(bassboost_max_up_gain,
-                      &global_settings.bassboost_settings.max_up_gain_db,
-                      lowlatency_callback);
-     MENUITEM_SETTING(bassboost_makeup,
-                      &global_settings.bassboost_settings.makeup_gain_db,
-                      lowlatency_callback);
-     MENUITEM_SETTING(bassboost_mix,
-                      &global_settings.bassboost_settings.mix,
-                      lowlatency_callback);
-     MENUITEM_SETTING(bassboost_spread,
-                      &global_settings.bassboost_settings.spread,
-                      lowlatency_callback);
-     MENUITEM_SETTING(bassboost_suboctave,
-                      &global_settings.bassboost_settings.sub_octave,
+     MENUITEM_SETTING(bassboost_sub_bass_gain,
+                      &global_settings.bassboost_settings.sub_bass_gain,
                       lowlatency_callback);
      MENUITEM_SETTING(bassboost_outgain,
                       &global_settings.bassboost_settings.output_gain,
                       lowlatency_callback);
      MAKE_MENU(bassboost_menu, ID2P(LANG_BASSBOOST), NULL, Icon_NOICON,
-               &bassboost_enabled, &bassboost_crossover,
-               &bassboost_threshold, &bassboost_ratio_down,
-               &bassboost_ratio_up,
-               &bassboost_pregain, &bassboost_knee, &bassboost_drive,
-               &bassboost_attack, &bassboost_release,
-               &bassboost_up_attack, &bassboost_up_release,
-               &bassboost_max_up_gain,
-               &bassboost_makeup, &bassboost_mix,
-               &bassboost_spread, &bassboost_suboctave,
+               &bassboost_enabled, &bassboost_ott_mode,
+               &bassboost_crossover,
+               &bassboost_sub_bass_gain,
                &bassboost_outgain);
 
     /* crystalizer menu */
