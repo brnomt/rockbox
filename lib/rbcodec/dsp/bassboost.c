@@ -55,19 +55,20 @@
 /* OTT mode: upward+downward compression toward central target.
  * All signals are pushed toward OTT_TARGET (-12 dB).
  * Upward: ratio^4 curve from max_up_gain → 1.0.
- * Downward: gain = target/env, clamped to OTT_MIN_DOWN_GAIN (-24 dB). */
+ * Downward: gain = target/env, clamped to OTT_MIN_DOWN_GAIN (-24 dB).
+ * Make-up gain compensates downward attenuation (≈ +4 dB). */
 #define OTT_TARGET        COMP_THRESH
 #define OTT_MIN_DOWN_GAIN (UNITY / 16)     /* -24 dB floor */
+#define OTT_MAKEUP_GAIN   ((UNITY * 3) / 2) /* +3.5 dB post-comp makeup */
 
-/* Gain smoother: 5 ms leaky integrator to prevent zipper noise
- * when dyn_gain changes abruptly across OTT threshold transitions. */
-#define GAIN_SMOOTH_MS 5
+/* Gain smoother: 1 ms minimal anti-zipper. Envelope already provides
+ * smoothing — this is just a safety net for threshold crossings. */
+#define GAIN_SMOOTH_MS 1
 
-/* Envelope follower constants (Q24 fixed-point):
- * attack_coeff  = e^(-1 / (0.005 * fs))   ~ 5 ms
- * release_coeff = e^(-1 / (0.150 * fs))   ~ 150 ms */
-#define ENV_ATTACK_MS   5
-#define ENV_RELEASE_MS  150
+/* Envelope follower constants (Q24 fixed-point).
+ * Fast attack + fast release = aggressive OTT pumping between hits. */
+#define ENV_ATTACK_MS   1
+#define ENV_RELEASE_MS  30
 
 static struct bassboost_settings curr_set;
 static struct dsp_filter lpf1, lpf2;
@@ -354,6 +355,11 @@ static void bassboost_process(struct dsp_proc_entry *this,
              * Saturating addition prevents int32 overflow on peaks. */
             int32_t delta_bass = wet - sub;
             int32_t result = sat_add(x, delta_bass);
+
+            /* OTT make-up gain: downward compression attenuates peaks;
+             * this recovers the lost bass energy (≈ +3.5 dB). */
+            if (curr_set.ott_mode)
+                result = (int32_t)(((int64_t)result * OTT_MAKEUP_GAIN) >> 24);
 
             /* Output gain */
             if (output_gain != UNITY)
