@@ -120,6 +120,21 @@ static FORCE_INLINE int32_t sat_add(int32_t a, int32_t b)
 }
 
 /* ------------------------------------------------------------------ */
+/*  Saturated Q24 multiply: gain applied with int32 overflow clamp      */
+/* ------------------------------------------------------------------ */
+static FORCE_INLINE int32_t sat_mul_q24(int32_t x, int32_t gain)
+{
+    if (gain == UNITY)
+        return x;
+    int64_t tmp = ((int64_t)x * gain) >> 24;
+    if (tmp > INT32_MAX)
+        return INT32_MAX;
+    if (tmp < INT32_MIN)
+        return INT32_MIN;
+    return (int32_t)tmp;
+}
+
+/* ------------------------------------------------------------------ */
 /*  Convert decibels-tenths to Q24 gain factor                        */
 /* ------------------------------------------------------------------ */
 static int32_t db_tenths_to_gain(int db_tenths)
@@ -326,6 +341,10 @@ static void bassboost_process(struct dsp_proc_entry *this,
                     dyn_gain = OTT_MIN_DOWN_GAIN;
 
                 wet = (int32_t)(((int64_t)sub * dyn_gain) >> 24);
+
+                /* OTT make-up: compensate downward attenuation (~+3.5 dB).
+                 * Applied to processed bass only — mids/highs untouched. */
+                wet = sat_mul_q24(wet, OTT_MAKEUP_GAIN);
             }
             else
             {
@@ -356,14 +375,8 @@ static void bassboost_process(struct dsp_proc_entry *this,
             int32_t delta_bass = wet - sub;
             int32_t result = sat_add(x, delta_bass);
 
-            /* OTT make-up gain: downward compression attenuates peaks;
-             * this recovers the lost bass energy (≈ +3.5 dB). */
-            if (curr_set.ott_mode)
-                result = (int32_t)(((int64_t)result * OTT_MAKEUP_GAIN) >> 24);
-
-            /* Output gain */
-            if (output_gain != UNITY)
-                result = (int32_t)(((int64_t)result * output_gain) >> 24);
+            /* Output gain (saturating: prevents overflow at any setting) */
+            result = sat_mul_q24(result, output_gain);
 
             if (ch == 0) outL = result;
             else         outR = result;
