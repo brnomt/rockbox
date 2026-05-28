@@ -9,15 +9,17 @@
  * Fixed-point implementation for ARM targets (iPod Classic 6/7)
  *
  * Signal flow:
- *   Input -> Sub-bass extraction (LPF) -> Envelope follower
- *           -> Upward compressor -> Mix with dry (volume-matched)
- *           -> Soft limit -> Output
+ *   Input -> LR4 crossover (2 cascaded LP biquads) -> Envelope follower
+ *           -> OTT-style upward compressor (ratio^4 curve)
+ *           -> Additive mix (delta injection, dry path untouched)
+ *           -> Output
  *
- * The low-pass filter isolates sub-bass content. The upward compressor
- * boosts bass only when it falls below a threshold, making quiet bass
- * louder without increasing peaks. Volume matching keeps the overall
- * level constant. No hard-clipping, no saturation, no distortion.
- * Mids and highs pass through the dry path untouched.
+ * LR4 (-24 dB/octave) cleanly isolates sub-bass from mids/highs.
+ * The upward compressor uses a convex ratio^4 transfer curve:
+ * gain drops only near threshold, keeping bass dense and present
+ * (OTT-style). Dry signal passes through unmodified — only the
+ * processed delta is added back. Saturating addition prevents
+ * int32 overflow on peaks. No hard-clipping, no distortion.
  *
  * Copyright (C) 2024
  *
@@ -51,13 +53,13 @@
 #define COMP_THRESH ((int32_t)(UNITY / 4))
 
 /* Envelope follower constants (Q24 fixed-point):
- * attack_coeff  = e^(-1 / (0.010 * fs))   ~ 10 ms
- * release_coeff = e^(-1 / (0.200 * fs))   ~ 200 ms */
-#define ENV_ATTACK_MS   10
-#define ENV_RELEASE_MS  200
+ * attack_coeff  = e^(-1 / (0.005 * fs))   ~ 5 ms
+ * release_coeff = e^(-1 / (0.150 * fs))   ~ 150 ms */
+#define ENV_ATTACK_MS   5
+#define ENV_RELEASE_MS  150
 
 static struct bassboost_settings curr_set;
-static struct dsp_filter lpf;
+static struct dsp_filter lpf1, lpf2;
 
 static int32_t boost_gain     = UNITY;
 static int32_t output_gain    = UNITY;
@@ -137,40 +139,46 @@ static void setup_envelope(unsigned long fs)
 /* ------------------------------------------------------------------ */
 static void setup_filter(int crossover_hz, unsigned long fs)
 {
-    /* Butterworth LP biquad — same format as crystalizer.
-     * cos/sin in s0.31 from fp_sincos, converted to s0.24.
-     * Coefficients stored via FRACMUL (s0.31), shift=6. */
+    /* LR4 crossover: two cascaded Butterworth LP biquads (-24 dB/oct).
+     * Same format as crystalizer: cos/sin s0.31 -> s0.24,
+     * FRACMUL storage, shift=6. */
     unsigned long phase = fp_div(crossover_hz, fs, 32);
     long cos_w0, sin_w0;
     sin_w0 = fp_sincos(phase, &cos_w0);
 
-    /* Q = 1/sqrt(2) => alpha = sin(w0) / sqrt(2).
-     * 0x5A82799A = 1/sqrt(2) in s0.31 (CORDIC constant). */
     int32_t alpha = (int32_t)(((int64_t)sin_w0 * (int64_t)0x5A82799ALL) >> 31);
-    int32_t cos_w0_s24 = cos_w0 >> 7;   /* s0.31 -> s0.24 */
-    int32_t alpha_s24   = alpha >> 7;   /* s0.31 -> s0.24 */
+    int32_t cos_w0_s24 = cos_w0 >> 7;
+    int32_t alpha_s24   = alpha >> 7;
 
-    int32_t lpc = (UNITY - cos_w0_s24) >> 1;  /* (1-cos)/2 */
+    int32_t lpc = (UNITY - cos_w0_s24) >> 1;
     int32_t b0 = lpc;
-    int32_t b1 = 2 * lpc;                     /* 1-cos */
+    int32_t b1 = 2 * lpc;
     int32_t b2 = lpc;
     int32_t a0 = UNITY + alpha_s24;
-    int32_t a1 = -2 * cos_w0_s24;             /* -2*cos */
+    int32_t a1 = -2 * cos_w0_s24;
     int32_t a2 = UNITY - alpha_s24;
 
     int32_t rcp_a0 = (int32_t)(((int64_t)1 << 55) / (int64_t)a0);
 
-    lpf.coefs[0] = FRACMUL(b0, rcp_a0);
-    lpf.coefs[1] = FRACMUL(b1, rcp_a0);
-    lpf.coefs[2] = FRACMUL(b2, rcp_a0);
-    lpf.coefs[3] = FRACMUL(-a1, rcp_a0);
-    lpf.coefs[4] = FRACMUL(-a2, rcp_a0);
-    lpf.shift = 6;
+    int32_t coefs[5];
+    coefs[0] = FRACMUL(b0, rcp_a0);
+    coefs[1] = FRACMUL(b1, rcp_a0);
+    coefs[2] = FRACMUL(b2, rcp_a0);
+    coefs[3] = FRACMUL(-a1, rcp_a0);
+    coefs[4] = FRACMUL(-a2, rcp_a0);
+
+    lpf1.coefs[0] = coefs[0]; lpf2.coefs[0] = coefs[0];
+    lpf1.coefs[1] = coefs[1]; lpf2.coefs[1] = coefs[1];
+    lpf1.coefs[2] = coefs[2]; lpf2.coefs[2] = coefs[2];
+    lpf1.coefs[3] = coefs[3]; lpf2.coefs[3] = coefs[3];
+    lpf1.coefs[4] = coefs[4]; lpf2.coefs[4] = coefs[4];
+    lpf1.shift = 6;           lpf2.shift = 6;
 }
 
 static void flush_filter(void)
 {
-    filter_flush(&lpf);
+    filter_flush(&lpf1);
+    filter_flush(&lpf2);
     memset(env_state, 0, sizeof(env_state));
 }
 
@@ -197,8 +205,10 @@ static void bassboost_process(struct dsp_proc_entry *this,
         {
             int32_t x = (ch == 0) ? L : R;
 
-            /* Extract sub-bass (no gain added, filter at unity) */
-            int32_t sub = biquad_step(&lpf, ch, x);
+            /* LR4 crossover: cascade two identical LP biquads
+             * for -24 dB/octave sub-bass isolation */
+            int32_t sub = biquad_step(&lpf1, ch, x);
+            sub = biquad_step(&lpf2, ch, sub);
 
             /* Envelope follower (peak detection with attack/release) */
             int32_t level = (sub < 0) ? -sub : sub;
@@ -210,23 +220,27 @@ static void bassboost_process(struct dsp_proc_entry *this,
                 ((int64_t)env_state[ch] * coeff) >> 24) +
                 (int32_t)(((int64_t)level * coeff_inv) >> 24);
 
-            /* Upward compressor: boost bass below threshold */
+            /* OTT-style upward compressor: convex ratio^4 transfer curve.
+             * Gain stays near max until close to threshold, then drops
+             * sharply — creating dense, always-present sub-bass.
+             *   gain = boost_gain - (boost_gain-1) * (env/thresh)^4    */
             int32_t wet = sub;
             if (boost_gain > UNITY && env_state[ch] < COMP_THRESH
                 && env_state[ch] > 0)
             {
-                /* Compute gain: boost_gain * (1 - env/thresh)
-                 * Maps: quiet bass -> boost_gain, loud bass -> UNITY */
-                int32_t headroom = UNITY - (int32_t)(
+                int32_t ratio = (int32_t)(
                     ((int64_t)env_state[ch] * UNITY) / COMP_THRESH);
-                int32_t dyn_gain = UNITY + (int32_t)(
-                    ((int64_t)(boost_gain - UNITY) * headroom) >> 24);
+                int32_t ratio_sq = (int32_t)(
+                    ((int64_t)ratio * ratio) >> 24);
+                int32_t ratio_q = (int32_t)(
+                    ((int64_t)ratio_sq * ratio_sq) >> 24);
+                int32_t atten = (int32_t)(
+                    ((int64_t)(boost_gain - UNITY) * ratio_q) >> 24);
+                int32_t dyn_gain = boost_gain - atten;
 
-                /* Clamp: max 12 dB */
                 if (dyn_gain > (UNITY * 4))
                     dyn_gain = UNITY * 4;
 
-                /* Apply dynamic gain to sub-bass */
                 wet = (int32_t)(((int64_t)sub * dyn_gain) >> 24);
             }
 
