@@ -52,6 +52,17 @@
  * Bass below this level gets boosted; bass above passes through. */
 #define COMP_THRESH ((int32_t)(UNITY / 4))
 
+/* OTT mode: upward+downward compression toward central target.
+ * All signals are pushed toward OTT_TARGET (-12 dB).
+ * Upward: ratio^4 curve from max_up_gain → 1.0.
+ * Downward: gain = target/env, clamped to OTT_MIN_DOWN_GAIN (-24 dB). */
+#define OTT_TARGET        COMP_THRESH
+#define OTT_MIN_DOWN_GAIN (UNITY / 16)     /* -24 dB floor */
+
+/* Gain smoother: 5 ms leaky integrator to prevent zipper noise
+ * when dyn_gain changes abruptly across OTT threshold transitions. */
+#define GAIN_SMOOTH_MS 5
+
 /* Envelope follower constants (Q24 fixed-point):
  * attack_coeff  = e^(-1 / (0.005 * fs))   ~ 5 ms
  * release_coeff = e^(-1 / (0.150 * fs))   ~ 150 ms */
@@ -70,6 +81,10 @@ static int32_t env_state[MAX_CH];
 /* Precomputed envelope coefficients (recalculated on sample rate change) */
 static int32_t attack_coeff;
 static int32_t release_coeff;
+
+/* Gain smoother state and coefficient (OTT mode, anti-zipper) */
+static int32_t gain_sm[MAX_CH];
+static int32_t gain_sm_coeff;
 
 /* ------------------------------------------------------------------ */
 /*  Per-sample biquad step (direct form 1)                            */
@@ -135,6 +150,15 @@ static void setup_envelope(unsigned long fs)
 }
 
 /* ------------------------------------------------------------------ */
+/*  Gain smoother: prevents zipper noise when dyn_gain jumps           */
+/* ------------------------------------------------------------------ */
+static void setup_gain_smoothing(unsigned long fs)
+{
+    int32_t t16 = (GAIN_SMOOTH_MS * 65536) / 1000;
+    gain_sm_coeff = fp_factor(-fp_div(65536, (long)t16 * (long)fs, 16), 16) << 8;
+}
+
+/* ------------------------------------------------------------------ */
 /*  Filter setup: low-pass to isolate sub-bass content                 */
 /* ------------------------------------------------------------------ */
 static void setup_filter(int crossover_hz, unsigned long fs)
@@ -180,6 +204,8 @@ static void flush_filter(void)
     filter_flush(&lpf1);
     filter_flush(&lpf2);
     memset(env_state, 0, sizeof(env_state));
+    gain_sm[0] = UNITY;
+    gain_sm[1] = UNITY;
 }
 
 /* ------------------------------------------------------------------ */
@@ -220,28 +246,107 @@ static void bassboost_process(struct dsp_proc_entry *this,
                 ((int64_t)env_state[ch] * coeff) >> 24) +
                 (int32_t)(((int64_t)level * coeff_inv) >> 24);
 
-            /* OTT-style upward compressor: convex ratio^4 transfer curve.
-             * Gain stays near max until close to threshold, then drops
-             * sharply — creating dense, always-present sub-bass.
-             *   gain = boost_gain - (boost_gain-1) * (env/thresh)^4    */
+            /* ── Dynamics processor ──────────────────────────────── */
             int32_t wet = sub;
-            if (boost_gain > UNITY && env_state[ch] < COMP_THRESH
-                && env_state[ch] > 0)
-            {
-                int32_t ratio = (int32_t)(
-                    ((int64_t)env_state[ch] * UNITY) / COMP_THRESH);
-                int32_t ratio_sq = (int32_t)(
-                    ((int64_t)ratio * ratio) >> 24);
-                int32_t ratio_q = (int32_t)(
-                    ((int64_t)ratio_sq * ratio_sq) >> 24);
-                int32_t atten = (int32_t)(
-                    ((int64_t)(boost_gain - UNITY) * ratio_q) >> 24);
-                int32_t dyn_gain = boost_gain - atten;
 
+            if (curr_set.ott_mode)
+            {
+                /* ═══ OTT MODE: upward + downward toward target ═══
+                 *
+                 * The compressor squeezes everything toward OTT_TARGET.
+                 *   Below target  → upward   (ratio^4, gain 1..boost_gain)
+                 *   Above target  → downward (gain = target/env, clamped)
+                 *   At    target  → unity    (no change)
+                 *
+                 * The ratio^4 convex curve on the upward side keeps gain
+                 * near maximum across most of the below-target range,
+                 * dropping only near the threshold — this creates the
+                 * dense "always-there" OTT character.  On the downward
+                 * side, gain = target/env acts as an ∞:1 compressor,
+                 * pulling peaks toward the target at -24 dB/octave
+                 * (clamped at OTT_MIN_DOWN_GAIN).  The transition
+                 * through unity at env == target is mathematically
+                 * continuous — no discontinuity, no click.
+                 *
+                 * A 5 ms leaky-integrator-gain-smoother runs over the
+                 * final dyn_gain to suppress zipper artifacts from the
+                 * aggressive ratio changes on low-frequency waveforms.
+                 * ───────────────────────────────────────────────── */
+                int32_t dyn_gain;
+
+                if (env_state[ch] <= 0)
+                {
+                    dyn_gain = boost_gain;     /* silence → full upward gain */
+                }
+                else if (env_state[ch] < OTT_TARGET)
+                {
+                    /* Upward: boost_gain - (boost_gain-1)*(env/target)^4 */
+                    int32_t ratio = (int32_t)(
+                        ((int64_t)env_state[ch] * UNITY) / OTT_TARGET);
+                    int32_t ratio_sq = (int32_t)(
+                        ((int64_t)ratio * ratio) >> 24);
+                    int32_t ratio_q = (int32_t)(
+                        ((int64_t)ratio_sq * ratio_sq) >> 24);
+                    int32_t atten = (int32_t)(
+                        ((int64_t)(boost_gain - UNITY) * ratio_q) >> 24);
+                    dyn_gain = boost_gain - atten;
+                }
+                else if (env_state[ch] > OTT_TARGET)
+                {
+                    /* Downward: gain = target / env  (∞:1 ratio)
+                     *  env=2•target → gain=½  (-6 dB)
+                     *  env=4•target → gain=¼  (-12 dB)
+                     *  clamped to OTT_MIN_DOWN_GAIN */
+                    dyn_gain = (int32_t)(
+                        ((int64_t)OTT_TARGET * UNITY) / env_state[ch]);
+                    if (dyn_gain < OTT_MIN_DOWN_GAIN)
+                        dyn_gain = OTT_MIN_DOWN_GAIN;
+                }
+                else
+                {
+                    dyn_gain = UNITY;          /* right at target */
+                }
+
+                /* Smooth gain transitions (anti-zipper) */
+                if (gain_sm[ch] == 0)
+                    gain_sm[ch] = dyn_gain;
+                else
+                    gain_sm[ch] = (int32_t)(
+                        ((int64_t)gain_sm[ch] * gain_sm_coeff) >> 24) +
+                        (int32_t)(
+                            ((int64_t)dyn_gain * (UNITY - gain_sm_coeff)) >> 24);
+
+                dyn_gain = gain_sm[ch];
+
+                /* Hard clamp: never exceed safe range */
                 if (dyn_gain > (UNITY * 4))
                     dyn_gain = UNITY * 4;
+                if (dyn_gain < OTT_MIN_DOWN_GAIN)
+                    dyn_gain = OTT_MIN_DOWN_GAIN;
 
                 wet = (int32_t)(((int64_t)sub * dyn_gain) >> 24);
+            }
+            else
+            {
+                /* ═══ NORMAL MODE: upward-only, ratio^4 curve ═══ */
+                if (boost_gain > UNITY && env_state[ch] < COMP_THRESH
+                    && env_state[ch] > 0)
+                {
+                    int32_t ratio = (int32_t)(
+                        ((int64_t)env_state[ch] * UNITY) / COMP_THRESH);
+                    int32_t ratio_sq = (int32_t)(
+                        ((int64_t)ratio * ratio) >> 24);
+                    int32_t ratio_q = (int32_t)(
+                        ((int64_t)ratio_sq * ratio_sq) >> 24);
+                    int32_t atten = (int32_t)(
+                        ((int64_t)(boost_gain - UNITY) * ratio_q) >> 24);
+                    int32_t dyn_gain = boost_gain - atten;
+
+                    if (dyn_gain > (UNITY * 4))
+                        dyn_gain = UNITY * 4;
+
+                    wet = (int32_t)(((int64_t)sub * dyn_gain) >> 24);
+                }
             }
 
             /* Additive mixing: inject only the extra bass gain into the
@@ -284,6 +389,7 @@ static bool bassboost_update(struct dsp_config *dsp,
 
     setup_filter(settings->crossover_hz, fs);
     setup_envelope(fs);
+    setup_gain_smoothing(fs);
 
     /* Boost gain: 0-240 maps to 0-24 dB (default 120 = +12 dB) */
     boost_gain = db_tenths_to_gain(settings->sub_bass_gain);

@@ -145,16 +145,16 @@
 </phrase>
 <phrase>
   id: LANG_BASSBOOST_THRESHOLD
-  desc: in sound settings
+  desc: deprecated
   user: core
   <source>
-    *: "Threshold"
+    *: ""
   </source>
   <dest>
-    *: "Threshold"
+    *: ""
   </dest>
   <voice>
-    *: "Threshold"
+    *: ""
   </voice>
 </phrase>
 <phrase>
@@ -312,17 +312,17 @@
   </voice>
 </phrase>
 <phrase>
-  id: LANG_BASSBOOST_MAX_UP_GAIN
-  desc: bassboost menu - maximum upward gain ceiling
+  id: LANG_BASSBOOST_SUB_BASS_GAIN
+  desc: in sound settings
   user: core
   <source>
-    *: "Max Up Gain"
+    *: "Sub Bass Gain"
   </source>
   <dest>
-    *: "Max Up Gain"
+    *: "Sub Bass Gain"
   </dest>
   <voice>
-    *: "Max Up Gain"
+    *: "Sub Bass Gain"
   </voice>
 </phrase>
 <phrase>
@@ -17591,7 +17591,7 @@
 </phrase>
 <phrase>
   id: LANG_BASSBOOST_PREGAIN
-  desc: bassboost menu - pre gain before compression
+  desc: bassboost menu - input attenuation before processing
   user: core
   <source>
     *: "Pre Gain"
@@ -17629,6 +17629,20 @@
   </dest>
   <voice>
     *: "Drive"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BASSBOOST_OTT
+  desc: bassboost menu - OTT mode toggle (upward+downward compression)
+  user: core
+  <source>
+    *: "OTT Mode"
+  </source>
+  <dest>
+    *: "OTT Mode"
+  </dest>
+  <voice>
+    *: "OTT Mode"
   </voice>
 </phrase>
 <phrase>
