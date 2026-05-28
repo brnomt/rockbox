@@ -5,17 +5,18 @@
  *   Jukebox    |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
  *                     \/            \/     \/    \/            \/
  *
- * Bass booster - constant aggressive sub-bass thump
+ * Bass booster - upward compressor on sub-bass
  * Fixed-point implementation for ARM targets (iPod Classic 6/7)
  *
  * Signal flow:
- *   Input → Dry path (full-band)
- *         → Low-shelf filter (boost, ~80-100Hz) → Soft-clip → Wet path
- *       → Mix dry + wet → Output gain → Output
+ *   Input -> Sub-bass extraction (LPF) -> Envelope follower
+ *           -> Upward compressor -> Mix with dry (volume-matched)
+ *           -> Soft limit -> Output
  *
- * Two-path architecture: the low-shelf path provides always-on, aggressive
- * sub-bass with a cubic soft-clipper for density. The dry path retains
- * mids/highs clarity. No ducking, no upward expander behavior.
+ * Low-pass filter isolates sub-bass. Upward compressor boosts bass
+ * only when it falls below a threshold (-12 dB), making quiet bass
+ * louder without increasing peaks. Volume matching keeps overall
+ * level constant. No hard-clipping, no saturation, no distortion.
  *
  * Copyright (C) 2024
  *
@@ -36,10 +37,9 @@
 struct bassboost_settings
 {
     bool enabled;
-    int crossover_hz;       /* Hz, low-pass cutoff (default 80) */
-    int sub_bass_gain;      /* 0-240, 0.1 dB fixed bass boost (default 120 = +12 dB) */
-    int drive;              /* 0-100 saturation amount (default 0) */
-    int mix;                /* 0-100% (default 100) */
+    bool ott_mode;           /* OTT-style: upward + downward compression toward target */
+    int crossover_hz;        /* Hz, low-pass cutoff (default 100) */
+    int sub_bass_gain;       /* 0-240, 0.1 dB max boost for quiet bass (default 120 = +12 dB) */
     int output_gain;         /* -120 to +120, 0.1 dB (default 0) */
 };
 
