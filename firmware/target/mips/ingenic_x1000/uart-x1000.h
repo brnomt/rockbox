@@ -1,5 +1,3 @@
-#ifndef __LANGUAGE_H
-#define __LANGUAGE_H
 /***************************************************************************
  *             __________               __   ___.
  *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -9,7 +7,7 @@
  *                     \/            \/     \/    \/            \/
  * $Id$
  *
- * Copyright (C) 2002, 2008 Daniel Stenberg
+ * Copyright (C) 2026 Skye Green
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -21,24 +19,25 @@
  *
  ****************************************************************************/
 
-/* Initialize language array with the builtin strings */
-void lang_init(const unsigned char *builtin, unsigned char **dest, int count);
+#ifndef __UART_X1000_H__
+#define __UART_X1000_H__
 
-/* load a given language file */
-int lang_core_load(const char *filename);
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 
-int lang_load(const char *filename, const unsigned char *builtin, 
-              unsigned char **dest, unsigned char *buffer, 
-              unsigned int user_num, int max_lang_size,
-              unsigned int max_id);
+typedef enum {
+    PORT_UART0 = 0,
+    PORT_UART1 = 1,
+    PORT_UART2 = 2,
+    PORT_MAX = 3,
+} uart_port_t;
 
-/* get the ID of an english string so it can be localised */
-int lang_english_to_id(const char *english);
-/* get the english string of a given id */
-const char * lang_id_to_english(int lang_id);
+extern void uart_init(uart_port_t port, int baud);
+extern void uart_tx(uart_port_t port, const uint8_t *buf, size_t len);
+extern size_t uart_rx(uart_port_t port, uint8_t *buf, size_t len);
+extern bool uart_pending_rx(uart_port_t port);
+extern void uart_set_baud(uart_port_t port, int baud);
+extern void uart_deinit(uart_port_t port);
 
-/* returns whether the loaded language is a right-to-left language */
-int lang_is_rtl(void);
-/* returns whether the loaded language needs units spoken before the value */
-int lang_units_first(void);
-#endif
+#endif /* __UART_X1000_H__ */
