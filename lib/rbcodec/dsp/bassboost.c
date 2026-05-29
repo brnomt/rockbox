@@ -10,16 +10,18 @@
  *
  * Signal flow:
  *   Input -> LR4 crossover (2 cascaded LP biquads) -> Envelope follower
- *           -> OTT-style upward compressor (ratio^4 curve)
+ *           -> Dynamics (upward ratio^4, downward ~4:1)
+ *           -> Gain smoother (5 ms anti-zipper)
  *           -> Additive mix (delta injection, dry path untouched)
  *           -> Output
  *
  * LR4 (-24 dB/octave) cleanly isolates sub-bass from mids/highs.
- * The upward compressor uses a convex ratio^4 transfer curve:
- * gain drops only near threshold, keeping bass dense and present
- * (OTT-style). Dry signal passes through unmodified — only the
- * processed delta is added back. Saturating addition prevents
- * int32 overflow on peaks. No hard-clipping, no distortion.
+ * Envelope follower uses moderate attack (5 ms) and slow release
+ * (100 ms) to track the amplitude contour — not individual cycles.
+ * OTT mode uses ~4:1 downward ratio (not ∞:1) for musical
+ * compression without squashing. Gain smoothing in both modes
+ * prevents zipper artifacts. Dry signal passes through unmodified.
+ * Saturating addition prevents int32 overflow. No distortion.
  *
  * Copyright (C) 2024
  *
@@ -55,20 +57,22 @@
 /* OTT mode: upward+downward compression toward central target.
  * All signals are pushed toward OTT_TARGET (-12 dB).
  * Upward: ratio^4 curve from max_up_gain → 1.0.
- * Downward: gain = target/env, clamped to OTT_MIN_DOWN_GAIN (-24 dB).
- * Make-up gain compensates downward attenuation (≈ +4 dB). */
+ * Downward: ~4:1 (75% blend toward ∞:1), clamped to OTT_MIN_DOWN_GAIN.
+ * Make-up gain compensates downward attenuation (≈ +2 dB). */
 #define OTT_TARGET        COMP_THRESH
 #define OTT_MIN_DOWN_GAIN (UNITY / 16)     /* -24 dB floor */
-#define OTT_MAKEUP_GAIN   ((UNITY * 3) / 2) /* +3.5 dB post-comp makeup */
+#define OTT_DOWN_STRENGTH ((UNITY * 3) / 4) /* ~4:1 ratio feel (75% of ∞:1) */
+#define OTT_MAKEUP_GAIN   ((UNITY * 5) / 4) /* +2 dB (softer ratio needs less) */
 
-/* Gain smoother: 1 ms minimal anti-zipper. Envelope already provides
- * smoothing — this is just a safety net for threshold crossings. */
-#define GAIN_SMOOTH_MS 1
+/* Gain smoother: 5 ms anti-zipper applied in all compression modes.
+ * Prevents gain modulation artifacts on low-frequency waveforms. */
+#define GAIN_SMOOTH_MS 5
 
 /* Envelope follower constants (Q24 fixed-point).
- * Fast attack + fast release = aggressive OTT pumping between hits. */
-#define ENV_ATTACK_MS   1
-#define ENV_RELEASE_MS  30
+ * Moderate attack tracks amplitude contour (not individual cycles).
+ * Longer release gives smooth, musical gain riding — no flutter. */
+#define ENV_ATTACK_MS   5
+#define ENV_RELEASE_MS  100
 
 static struct bassboost_settings curr_set;
 static struct dsp_filter lpf1, lpf2;
@@ -271,22 +275,21 @@ static void bassboost_process(struct dsp_proc_entry *this,
                  *
                  * The compressor squeezes everything toward OTT_TARGET.
                  *   Below target  → upward   (ratio^4, gain 1..boost_gain)
-                 *   Above target  → downward (gain = target/env, clamped)
+                 *   Above target  → downward (~4:1, clamped)
                  *   At    target  → unity    (no change)
                  *
                  * The ratio^4 convex curve on the upward side keeps gain
                  * near maximum across most of the below-target range,
                  * dropping only near the threshold — this creates the
                  * dense "always-there" OTT character.  On the downward
-                 * side, gain = target/env acts as an ∞:1 compressor,
-                 * pulling peaks toward the target at -24 dB/octave
-                 * (clamped at OTT_MIN_DOWN_GAIN).  The transition
-                 * through unity at env == target is mathematically
+                 * side, a ~4:1 ratio (75% blend toward ∞:1) compresses
+                 * peaks musically without squashing dynamics flat.
+                 * Transition through unity at env == target is
                  * continuous — no discontinuity, no click.
                  *
-                 * A 5 ms leaky-integrator-gain-smoother runs over the
-                 * final dyn_gain to suppress zipper artifacts from the
-                 * aggressive ratio changes on low-frequency waveforms.
+                 * A 5 ms leaky-integrator gain smoother runs over the
+                 * final dyn_gain to suppress zipper artifacts from
+                 * gain modulation on low-frequency waveforms.
                  * ───────────────────────────────────────────────── */
                 int32_t dyn_gain;
 
@@ -309,12 +312,15 @@ static void bassboost_process(struct dsp_proc_entry *this,
                 }
                 else if (env_state[ch] > OTT_TARGET)
                 {
-                    /* Downward: gain = target / env  (∞:1 ratio)
-                     *  env=2•target → gain=½  (-6 dB)
-                     *  env=4•target → gain=¼  (-12 dB)
-                     *  clamped to OTT_MIN_DOWN_GAIN */
-                    dyn_gain = (int32_t)(
+                    /* Downward: ~4:1 via blend of unity and ∞:1.
+                     * gain_inf = target/env; apply 75% of the reduction.
+                     * Softer than ∞:1 — compresses peaks without squashing. */
+                    int32_t gain_inf = (int32_t)(
                         ((int64_t)OTT_TARGET * UNITY) / env_state[ch]);
+                    int32_t reduction = UNITY - gain_inf;
+                    int32_t applied = (int32_t)(
+                        ((int64_t)reduction * OTT_DOWN_STRENGTH) >> 24);
+                    dyn_gain = UNITY - applied;
                     if (dyn_gain < OTT_MIN_DOWN_GAIN)
                         dyn_gain = OTT_MIN_DOWN_GAIN;
                 }
@@ -349,6 +355,8 @@ static void bassboost_process(struct dsp_proc_entry *this,
             else
             {
                 /* ═══ NORMAL MODE: upward-only, ratio^4 curve ═══ */
+                int32_t dyn_gain = UNITY;
+
                 if (boost_gain > UNITY && env_state[ch] < COMP_THRESH
                     && env_state[ch] > 0)
                 {
@@ -360,13 +368,24 @@ static void bassboost_process(struct dsp_proc_entry *this,
                         ((int64_t)ratio_sq * ratio_sq) >> 24);
                     int32_t atten = (int32_t)(
                         ((int64_t)(boost_gain - UNITY) * ratio_q) >> 24);
-                    int32_t dyn_gain = boost_gain - atten;
+                    dyn_gain = boost_gain - atten;
 
                     if (dyn_gain > (UNITY * 4))
                         dyn_gain = UNITY * 4;
-
-                    wet = (int32_t)(((int64_t)sub * dyn_gain) >> 24);
                 }
+
+                /* Smooth gain transitions (anti-zipper) */
+                if (gain_sm[ch] == 0)
+                    gain_sm[ch] = dyn_gain;
+                else
+                    gain_sm[ch] = (int32_t)(
+                        ((int64_t)gain_sm[ch] * gain_sm_coeff) >> 24) +
+                        (int32_t)(
+                            ((int64_t)dyn_gain * (UNITY - gain_sm_coeff)) >> 24);
+
+                dyn_gain = gain_sm[ch];
+
+                wet = (int32_t)(((int64_t)sub * dyn_gain) >> 24);
             }
 
             /* Additive mixing: inject only the extra bass gain into the
