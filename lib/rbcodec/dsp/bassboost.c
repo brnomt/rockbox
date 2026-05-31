@@ -259,131 +259,52 @@ static void bassboost_process(struct dsp_proc_entry *this,
             int32_t sub = biquad_step(&lpf1, ch, x);
             sub = biquad_step(&lpf2, ch, sub);
 
-            /* Envelope follower (peak detection with attack/release) */
-            int32_t level = (sub == INT32_MIN) ? INT32_MAX : ((sub < 0) ? -sub : sub);
-            level >>= (WORD_FRACBITS - 24); /* Escalar de S.27 a Q24 (UNITY) */
-            int32_t coeff = (level > env_state[ch])
-                          ? 0   /* Instant attack to prevent transient clipping */
-                          : release_coeff;
-            int32_t coeff_inv = UNITY - coeff;
-            env_state[ch] = (int32_t)(
-                ((int64_t)env_state[ch] * coeff) >> 24) +
-                (int32_t)(((int64_t)level * coeff_inv) >> 24);
+            /* ═══ RAW EQ MODE: Constant EQ Boost ═══
+             * Apply full boost unconditionally. No ducking, no compression. */
+            int32_t dyn_gain = boost_gain;
 
-            /* ── Dynamics processor ──────────────────────────────── */
-            int32_t wet = sub;
+            /* Smooth gain transitions (anti-zipper if user changes settings) */
+            if (gain_sm[ch] == -1)
+                gain_sm[ch] = dyn_gain;
+            else
+                gain_sm[ch] = (int32_t)(
+                    ((int64_t)gain_sm[ch] * gain_sm_coeff) >> 24) +
+                    (int32_t)(
+                        ((int64_t)dyn_gain * (UNITY - gain_sm_coeff)) >> 24);
 
-            if (curr_set.ott_mode)
+            dyn_gain = gain_sm[ch];
+            int32_t wet = (int32_t)(((int64_t)sub * dyn_gain) >> 24);
+
+            /* Additive mixing: inject only the extra bass gain into the
+             * original signal. When wet = sub (no boost), output = x. */
+            int32_t delta_bass = wet - sub;
+            int64_t raw_result = (int64_t)x + delta_bass;
+
+            /* Apply output gain */
+            int64_t g_result = (raw_result * output_gain) >> 24;
+
+            /* ── Master Soft Clipper (Waveshaper) ─────────────────────
+             * Prevents hard clipping at the DAC without pumping.
+             * Linear up to -1.16 dBFS, soft rounds peaks above that.
+             * 27 fractional bits: UNITY = 2^27 = 134217728. */
+            int64_t max_val = (1LL << 27);
+            int64_t thresh  = (max_val * 7) / 8;
+            int64_t abs_g   = (g_result < 0) ? -g_result : g_result;
+            int32_t result;
+
+            if (abs_g <= thresh)
             {
-                /* ═══ OTT MODE: upward + downward toward target ═══
-                 *
-                 * The compressor squeezes everything toward OTT_TARGET.
-                 *   Below target  → upward   (ratio^4, gain 1..boost_gain)
-                 *   Above target  → downward (~4:1, clamped)
-                 *   At    target  → unity    (no change)
-                 *
-                 * The ratio^4 convex curve on the upward side keeps gain
-                 * near maximum across most of the below-target range,
-                 * dropping only near the threshold — this creates the
-                 * dense "always-there" OTT character.  On the downward
-                 * side, a ~4:1 ratio (75% blend toward ∞:1) compresses
-                 * peaks musically without squashing dynamics flat.
-                 * Transition through unity at env == target is
-                 * continuous — no discontinuity, no click.
-                 *
-                 * A 5 ms leaky-integrator gain smoother runs over the
-                 * final dyn_gain to suppress zipper artifacts from
-                 * gain modulation on low-frequency waveforms.
-                 * ───────────────────────────────────────────────── */
-                int32_t dyn_gain;
-
-                if (env_state[ch] <= 0)
-                {
-                    dyn_gain = boost_gain;     /* silence → full upward gain */
-                }
-                else if (env_state[ch] < OTT_TARGET)
-                {
-                    /* Upward: boost_gain - (boost_gain-1)*(env/target)^4 */
-                    int32_t ratio = (int32_t)(
-                        ((int64_t)env_state[ch] * UNITY) / OTT_TARGET);
-                    int32_t ratio_sq = (int32_t)(
-                        ((int64_t)ratio * ratio) >> 24);
-                    int32_t ratio_q = (int32_t)(
-                        ((int64_t)ratio_sq * ratio_sq) >> 24);
-                    int32_t atten = (int32_t)(
-                        ((int64_t)(boost_gain - UNITY) * ratio_q) >> 24);
-                    dyn_gain = boost_gain - atten;
-                }
-                else if (env_state[ch] > OTT_TARGET)
-                {
-                    /* Downward: ~4:1 via blend of unity and ∞:1.
-                     * gain_inf = target/env; apply 75% of the reduction.
-                     * Softer than ∞:1 — compresses peaks without squashing. */
-                    int32_t gain_inf = (int32_t)(
-                        ((int64_t)OTT_TARGET * UNITY) / env_state[ch]);
-                    int32_t reduction = UNITY - gain_inf;
-                    int32_t applied = (int32_t)(
-                        ((int64_t)reduction * OTT_DOWN_STRENGTH) >> 24);
-                    dyn_gain = UNITY - applied;
-                    if (dyn_gain < OTT_MIN_DOWN_GAIN)
-                        dyn_gain = OTT_MIN_DOWN_GAIN;
-                }
-                else
-                {
-                    dyn_gain = UNITY;          /* right at target */
-                }
-
-                /* Smooth gain transitions (anti-zipper) */
-                if (gain_sm[ch] == -1 || dyn_gain < gain_sm[ch])
-                    gain_sm[ch] = dyn_gain;
-                else
-                    gain_sm[ch] = (int32_t)(
-                        ((int64_t)gain_sm[ch] * gain_sm_coeff) >> 24) +
-                        (int32_t)(
-                            ((int64_t)dyn_gain * (UNITY - gain_sm_coeff)) >> 24);
-
-                dyn_gain = gain_sm[ch];
-
-                /* Hard clamp: never exceed safe range */
-                if (dyn_gain > (UNITY * 16))
-                    dyn_gain = UNITY * 16;
-                if (dyn_gain < OTT_MIN_DOWN_GAIN)
-                    dyn_gain = OTT_MIN_DOWN_GAIN;
-
-                wet = (int32_t)(((int64_t)sub * dyn_gain) >> 24);
-
-                /* OTT make-up: compensate downward attenuation (~+3.5 dB).
-                 * Applied to processed bass only — mids/highs untouched. */
-                wet = sat_mul_q24(wet, OTT_MAKEUP_GAIN);
+                result = (int32_t)g_result;
             }
             else
             {
-                /* ═══ NORMAL MODE: Constant EQ Boost ═══
-                 * We apply full boost unconditionally. The new Master Limiter
-                 * downstream will perfectly prevent clipping by ducking the track. */
-                int32_t dyn_gain = boost_gain;
-
-                /* Smooth gain transitions (anti-zipper if user changes settings) */
-                if (gain_sm[ch] == -1)
-                    gain_sm[ch] = dyn_gain;
-                else
-                    gain_sm[ch] = (int32_t)(
-                        ((int64_t)gain_sm[ch] * gain_sm_coeff) >> 24) +
-                        (int32_t)(
-                            ((int64_t)dyn_gain * (UNITY - gain_sm_coeff)) >> 24);
-
-                dyn_gain = gain_sm[ch];
-                wet = (int32_t)(((int64_t)sub * dyn_gain) >> 24);
+                int64_t over = abs_g - thresh;
+                int64_t headroom = max_val - thresh;
+                /* soft_over = (over * headroom) / (headroom + over) */
+                int64_t soft_over = (over * headroom) / (headroom + over);
+                int64_t y = thresh + soft_over;
+                result = (int32_t)((g_result < 0) ? -y : y);
             }
-
-            /* Additive mixing: inject only the extra bass gain into the
-             * original signal. When wet = sub (no boost), output = x.
-             * Saturating addition prevents int32 overflow on peaks. */
-            int32_t delta_bass = wet - sub;
-            int32_t result = sat_add(x, delta_bass);
-
-            /* Output gain (saturating: prevents overflow at any setting) */
-            result = sat_mul_q24(result, output_gain);
 
             if (ch == 0) outL = result;
             else         outR = result;
