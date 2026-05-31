@@ -216,7 +216,7 @@ static void setup_filter(int crossover_hz, unsigned long fs)
     lpf1.coefs[2] = coefs[2]; lpf2.coefs[2] = coefs[2];
     lpf1.coefs[3] = coefs[3]; lpf2.coefs[3] = coefs[3];
     lpf1.coefs[4] = coefs[4]; lpf2.coefs[4] = coefs[4];
-    lpf1.shift = 6;           lpf2.shift = 6;
+    lpf1.shift = 8;           lpf2.shift = 8;
 }
 
 static void flush_filter(void)
@@ -341,8 +341,8 @@ static void bassboost_process(struct dsp_proc_entry *this,
                 dyn_gain = gain_sm[ch];
 
                 /* Hard clamp: never exceed safe range */
-                if (dyn_gain > (UNITY * 4))
-                    dyn_gain = UNITY * 4;
+                if (dyn_gain > (UNITY * 16))
+                    dyn_gain = UNITY * 16;
                 if (dyn_gain < OTT_MIN_DOWN_GAIN)
                     dyn_gain = OTT_MIN_DOWN_GAIN;
 
@@ -357,8 +357,7 @@ static void bassboost_process(struct dsp_proc_entry *this,
                 /* ═══ NORMAL MODE: upward-only, ratio^4 curve ═══ */
                 int32_t dyn_gain = UNITY;
 
-                if (boost_gain > UNITY && env_state[ch] < COMP_THRESH
-                    && env_state[ch] > 0)
+                if (boost_gain > UNITY && env_state[ch] < COMP_THRESH)
                 {
                     int32_t ratio = (int32_t)(
                         ((int64_t)env_state[ch] * UNITY) / COMP_THRESH);
@@ -370,8 +369,8 @@ static void bassboost_process(struct dsp_proc_entry *this,
                         ((int64_t)(boost_gain - UNITY) * ratio_q) >> 24);
                     dyn_gain = boost_gain - atten;
 
-                    if (dyn_gain > (UNITY * 4))
-                        dyn_gain = UNITY * 4;
+                    if (dyn_gain > (UNITY * 16))
+                        dyn_gain = UNITY * 16;
                 }
 
                 /* Smooth gain transitions (anti-zipper) */

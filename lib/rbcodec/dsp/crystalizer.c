@@ -113,7 +113,7 @@ static void butterworth_coefs(unsigned long cutoff_phase, bool highpass,
     f->coefs[2] = FRACMUL(b2, rcp_a0);
     f->coefs[3] = FRACMUL(-a1, rcp_a0);
     f->coefs[4] = FRACMUL(-a2, rcp_a0);
-    f->shift = 6;
+    f->shift = 8;
 }
 
 static void setup_filters(int low_hz, int mid_hz, unsigned long fs)
