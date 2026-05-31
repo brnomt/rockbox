@@ -85,6 +85,9 @@ static int32_t output_gain    = UNITY;
 /* Envelope follower state (per channel) */
 static int32_t env_state[MAX_CH];
 
+/* Master limiter state (per channel) */
+static int32_t lim_state[MAX_CH];
+
 /* Precomputed envelope coefficients (recalculated on sample rate change) */
 static int32_t attack_coeff;
 static int32_t release_coeff;
@@ -226,6 +229,7 @@ static void flush_filter(void)
     filter_flush(&lpf1);
     filter_flush(&lpf2);
     memset(env_state, 0, sizeof(env_state));
+    memset(lim_state, 0, sizeof(lim_state));
     gain_sm[0] = UNITY;
     gain_sm[1] = UNITY;
 }
@@ -357,26 +361,12 @@ static void bassboost_process(struct dsp_proc_entry *this,
             }
             else
             {
-                /* ═══ NORMAL MODE: upward-only, ratio^4 curve ═══ */
-                int32_t dyn_gain = UNITY;
+                /* ═══ NORMAL MODE: Constant EQ Boost ═══
+                 * We apply full boost unconditionally. The new Master Limiter
+                 * downstream will perfectly prevent clipping by ducking the track. */
+                int32_t dyn_gain = boost_gain;
 
-                if (boost_gain > UNITY && env_state[ch] < COMP_THRESH)
-                {
-                    int32_t ratio = (int32_t)(
-                        ((int64_t)env_state[ch] * UNITY) / COMP_THRESH);
-                    int32_t ratio_sq = (int32_t)(
-                        ((int64_t)ratio * ratio) >> 24);
-                    int32_t ratio_q = (int32_t)(
-                        ((int64_t)ratio_sq * ratio_sq) >> 24);
-                    int32_t atten = (int32_t)(
-                        ((int64_t)(boost_gain - UNITY) * ratio_q) >> 24);
-                    dyn_gain = boost_gain - atten;
-
-                    if (dyn_gain > (UNITY * 16))
-                        dyn_gain = UNITY * 16;
-                }
-
-                /* Smooth gain transitions (anti-zipper) */
+                /* Smooth gain transitions (anti-zipper if user changes settings) */
                 if (gain_sm[ch] == 0)
                     gain_sm[ch] = dyn_gain;
                 else
@@ -386,18 +376,33 @@ static void bassboost_process(struct dsp_proc_entry *this,
                             ((int64_t)dyn_gain * (UNITY - gain_sm_coeff)) >> 24);
 
                 dyn_gain = gain_sm[ch];
-
                 wet = (int32_t)(((int64_t)sub * dyn_gain) >> 24);
             }
 
-            /* Additive mixing: inject only the extra bass gain into the
-             * original signal. When wet = sub (no boost), output = x.
-             * Saturating addition prevents int32 overflow on peaks. */
+            /* Additive mixing with 64-bit headroom to prevent any hard clip */
             int32_t delta_bass = wet - sub;
-            int32_t result = sat_add(x, delta_bass);
+            int64_t raw_result = (int64_t)x + delta_bass;
 
-            /* Output gain (saturating: prevents overflow at any setting) */
-            result = sat_mul_q24(result, output_gain);
+            /* ── Master Peak Limiter ────────────────────────────────── */
+            int64_t abs_raw = (raw_result < 0) ? -raw_result : raw_result;
+            int32_t peak = (int32_t)(abs_raw >> (WORD_FRACBITS - 24));
+
+            /* Instant attack (0 ms) to catch all transients, shared release */
+            int32_t lim_coeff = (peak > lim_state[ch]) ? 0 : release_coeff;
+            lim_state[ch] = (int32_t)(
+                ((int64_t)lim_state[ch] * lim_coeff) >> 24) +
+                (int32_t)(((int64_t)peak * (UNITY - lim_coeff)) >> 24);
+
+            int32_t lim_gain = UNITY;
+            if (lim_state[ch] > UNITY)
+            {
+                /* Calculate reduction to keep peak exactly at UNITY (0 dBFS) */
+                lim_gain = (int32_t)( ((int64_t)UNITY * UNITY) / lim_state[ch] );
+            }
+
+            /* Apply limiter gain and output gain */
+            int32_t final_gain = (int32_t)(((int64_t)lim_gain * output_gain) >> 24);
+            int32_t result = (int32_t)((raw_result * final_gain) >> 24);
 
             if (ch == 0) outL = result;
             else         outR = result;
