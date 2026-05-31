@@ -62,42 +62,17 @@
  * Downward: ~4:1 (75% blend toward ∞:1), clamped to OTT_MIN_DOWN_GAIN.
  * Make-up gain compensates downward attenuation (≈ +2 dB). */
 #define OTT_TARGET        ((int32_t)(UNITY / 4))
-#define OTT_MIN_DOWN_GAIN (UNITY / 16)     /* -24 dB floor */
-#define OTT_DOWN_STRENGTH ((UNITY * 3) / 4) /* ~4:1 ratio feel (75% of ∞:1) */
-#define OTT_MAKEUP_GAIN   ((UNITY * 5) / 4) /* +2 dB (softer ratio needs less) */
-
-/* Gain smoother: 5 ms anti-zipper applied in all compression modes.
- * Prevents gain modulation artifacts on low-frequency waveforms. */
-#define GAIN_SMOOTH_MS 5
-
-/* Envelope follower constants (Q24 fixed-point).
- * Moderate attack tracks amplitude contour (not individual cycles).
- * Longer release gives smooth, musical gain riding — no flutter. */
-#define ENV_ATTACK_MS   5
-#define ENV_RELEASE_MS  100
-
 static struct bassboost_settings curr_set;
 static struct dsp_filter lpf1, lpf2;
 
 static int32_t boost_gain     = UNITY;
 static int32_t output_gain    = UNITY;
 
-/* Envelope follower state (per channel) */
-static int32_t env_state[MAX_CH];
-
-/* Precomputed envelope coefficients (recalculated on sample rate change) */
-static int32_t attack_coeff;
-static int32_t release_coeff;
-
 /* Psychoacoustic Harmonics Generator */
 static int32_t harmonics_gain = 0;
 static int64_t dc_state[MAX_CH];
 static int32_t last_even_harm[MAX_CH];
 static int32_t dc_coeff;
-
-/* Gain smoother state and coefficient (OTT mode, anti-zipper) */
-static int32_t gain_sm[MAX_CH];
-static int32_t gain_sm_coeff;
 
 /* ------------------------------------------------------------------ */
 /*  Per-sample biquad step (direct form 1)                            */
@@ -164,29 +139,7 @@ static int32_t db_tenths_to_gain(int db_tenths)
 }
 
 /* ------------------------------------------------------------------ */
-/*  Compute envelope follower coefficients from sample rate            */
-/* ------------------------------------------------------------------ */
-static void setup_envelope(unsigned long fs)
-{
-    /* coeff = e^(-1 / (time_s * fs))
-     * Convert ms to 16.16 seconds, then use fp_factor */
-    int32_t attack_t16 = (ENV_ATTACK_MS * 65536) / 1000;
-    attack_coeff = fp_factor(-fp_div(65536, (long)attack_t16 * (long)fs, 16), 16) << 8;
 
-    int32_t release_t16 = (ENV_RELEASE_MS * 65536) / 1000;
-    release_coeff = fp_factor(-fp_div(65536, (long)release_t16 * (long)fs, 16), 16) << 8;
-}
-
-/* ------------------------------------------------------------------ */
-/*  Gain smoother: prevents zipper noise when dyn_gain jumps           */
-/* ------------------------------------------------------------------ */
-static void setup_gain_smoothing(unsigned long fs)
-{
-    int32_t t16 = (GAIN_SMOOTH_MS * 65536) / 1000;
-    gain_sm_coeff = fp_factor(-fp_div(65536, (long)t16 * (long)fs, 16), 16) << 8;
-}
-
-/* ------------------------------------------------------------------ */
 /*  Filter setup: low-pass to isolate sub-bass content                 */
 /* ------------------------------------------------------------------ */
 static void setup_filter(int crossover_hz, unsigned long fs)
@@ -236,12 +189,8 @@ static void flush_filter(void)
 {
     filter_flush(&lpf1);
     filter_flush(&lpf2);
-    memset(env_state, 0, sizeof(env_state));
     memset(dc_state, 0, sizeof(dc_state));
     memset(last_even_harm, 0, sizeof(last_even_harm));
-
-    gain_sm[0] = -1;
-    gain_sm[1] = -1;
 }
 
 /* ------------------------------------------------------------------ */
@@ -274,39 +223,28 @@ static void bassboost_process(struct dsp_proc_entry *this,
 
             /* ═══ RAW EQ MODE: Constant EQ Boost ═══
              * Apply full boost unconditionally. No ducking, no compression. */
-            int32_t dyn_gain = boost_gain;
-
-            /* Smooth gain transitions (anti-zipper if user changes settings) */
-            if (gain_sm[ch] == -1)
-                gain_sm[ch] = dyn_gain;
-            else
-                gain_sm[ch] = (int32_t)(
-                    ((int64_t)gain_sm[ch] * gain_sm_coeff) >> 24) +
-                    (int32_t)(
-                        ((int64_t)dyn_gain * (UNITY - gain_sm_coeff)) >> 24);
-
-            dyn_gain = gain_sm[ch];
-            int32_t wet = (int32_t)(((int64_t)sub * dyn_gain) >> 24);
+            int64_t wet = ((int64_t)sub * boost_gain) >> 24;
 
             /* Psychoacoustic Harmonics (MaxxBass principle) */
             int32_t harm = 0;
             if (harmonics_gain > 0)
             {
                 /* Generate even harmonics via full-wave rectification */
-                int32_t even_gen = (wet == INT32_MIN) ? INT32_MAX : ((wet < 0) ? -wet : wet);
+                int64_t even_gen = (wet < 0) ? -wet : wet;
+                if (even_gen > INT32_MAX) even_gen = INT32_MAX;
                 
                 /* 1-pole DC Blocker to remove the 0 Hz offset */
-                int64_t hp_out = (int64_t)even_gen - last_even_harm[ch] + 
+                int64_t hp_out = even_gen - last_even_harm[ch] + 
                                  ((dc_state[ch] * dc_coeff) >> 24);
-                last_even_harm[ch] = even_gen;
-                dc_state[ch] = hp_out;
                 
-                /* Clip to prevent math overflow */
-                int32_t hp_out_32 = (int32_t)hp_out;
-                if (hp_out > INT32_MAX) hp_out_32 = INT32_MAX;
-                if (hp_out < INT32_MIN) hp_out_32 = INT32_MIN;
+                /* Prevent values from overflowing. */
+                if (hp_out > INT32_MAX) hp_out = INT32_MAX;
+                if (hp_out < INT32_MIN) hp_out = INT32_MIN;
+                
+                last_even_harm[ch] = (int32_t)even_gen;
+                dc_state[ch] = hp_out;
 
-                harm = (int32_t)(((int64_t)hp_out_32 * harmonics_gain) >> 24);
+                harm = (int32_t)((hp_out * harmonics_gain) >> 24);
             }
 
             /* Additive mixing: inject only the extra bass gain into the
@@ -320,8 +258,8 @@ static void bassboost_process(struct dsp_proc_entry *this,
             /* ── Master Soft Clipper (Waveshaper) ─────────────────────
              * Prevents hard clipping at the DAC without pumping.
              * Linear up to -1.16 dBFS, soft rounds peaks above that.
-             * 27 fractional bits: UNITY = 2^27 = 134217728. */
-            int64_t max_val = (1LL << 27);
+             * In Rockbox DSP (S0.31 format), full scale is roughly INT32_MAX. */
+            int64_t max_val = ((1LL << 31) - 1);
             int64_t thresh  = (max_val * 7) / 8;
             int64_t abs_g   = (g_result < 0) ? -g_result : g_result;
             int32_t result;
@@ -369,11 +307,6 @@ static bool bassboost_update(struct dsp_config *dsp,
     curr_set = *settings;
 
     setup_filter(settings->crossover_hz, fs);
-    setup_envelope(fs);
-    setup_gain_smoothing(fs);
-
-    if (release_coeff < 0 || release_coeff > UNITY) return false;
-    if (gain_sm_coeff < 0 || gain_sm_coeff > UNITY) return false;
 
     /* Boost gain: 0-240 maps to 0-24 dB (default 120 = +12 dB) */
     boost_gain = db_tenths_to_gain(settings->sub_bass_gain);
@@ -384,6 +317,8 @@ static bool bassboost_update(struct dsp_config *dsp,
 
     /* Output gain */
     output_gain = db_tenths_to_gain(settings->output_gain);
+    if (output_gain > (UNITY * 16))
+        output_gain = UNITY * 16;
 
     return true;
 }
