@@ -238,10 +238,14 @@ static int timestretch_callback(int action,
      MENUITEM_SETTING(bassboost_outgain,
                       &global_settings.bassboost_settings.output_gain,
                       lowlatency_callback);
+     MENUITEM_SETTING(bassboost_harmonics,
+                      &global_settings.bassboost_settings.harmonics,
+                      lowlatency_callback);
      MAKE_MENU(bassboost_menu, ID2P(LANG_BASSBOOST), NULL, Icon_NOICON,
                &bassboost_enabled,
                &bassboost_crossover,
                &bassboost_sub_bass_gain,
+               &bassboost_harmonics,
                &bassboost_outgain);
 
     /* crystalizer menu */
