@@ -4,13 +4,13 @@ Bass booster (fixed sub-bass gain + saturation) and Crystalizer (2-band transien
 
 ## Bassboost
 
-Simple sub-bass processor designed for maximum impact with minimal controls:
+Simple but extremely powerful sub-bass processor designed for maximum impact, utilizing psychoacoustic harmonics to make bass audible on small drivers.
 
-- **Sub Bass Gain** (0–24 dB, step 0.5, default +12 dB): fixed gain boost applied directly to the low-passed bass band (no compressor — this is a straight multiplicative boost that makes sub-bass hit HARD)
-- **Drive / saturation** (0–100%): cubic soft clip `(3x−x³)/2`, up to 4× input scaling. Adds harmonics for perceived bass
-- **Mix** (0–100%) wet/dry blend
-- **Output gain** (±12 dB)
-- **Hard limiter** at 0 dBFS on the boosted bass band prevents overflow
+- **Crossover** (40–500 Hz): 4th-order Linkwitz-Riley (-24 dB/octave) for surgical sub-bass isolation.
+- **Sub Bass Gain** (0–24 dB, step 0.5, default +12 dB): fixed gain boost applied directly to the sub-bass band.
+- **Harmonics** (0–100%): Psychoacoustic harmonic generator based on the MaxxBass principle (full-wave rectification + DC blocking). Creates even-order harmonics that trick the brain into hearing deep bass even if the headphones physically can't reproduce it.
+- **Output gain** (±12 dB): Master output trim.
+- **Master Soft Clipper (Waveshaper)**: Replaces hard clipping. Sits at the end of the DSP chain and softly rounds peaks that exceed the digital ceiling, preventing harsh digital distortion while maintaining massive volume.
 
 ### Defaults
 
@@ -18,14 +18,15 @@ Simple sub-bass processor designed for maximum impact with minimal controls:
 |-----------|---------|
 | Crossover | 80 Hz |
 | Sub Bass Gain | +12 dB |
-| Drive | 0% |
-| Mix | 100% |
+| Harmonics | 0% |
 | Output gain | 0 dB |
 
 ### Signal flow
 
 ```
-Input → LR2 LPF@crossover → [Drive sat] → [Sub Bass Gain] → [Hard limiter] → Mix → Output
+Input → LR4 LPF@crossover → [Sub Bass Gain] → [Harmonics Gen + DC Block] → ┐
+                                                                           ├→ [Soft Clipper] → Output
+Input ---------------------------------------------------------------------┘
 ```
 
 ## Crystalizer
@@ -55,9 +56,8 @@ On device: **Settings → Sound Settings → Bassboost / Crystalizer**
 ### Bassboost menu
 - **Enable**
 - **Crossover** (40–500 Hz, step 10)
-- **Sub Bass Gain** (0–24 dB, step 0.5) — fixed boost to the bass band. Default +12 dB
-- **Drive** (0–100%, step 5) — saturation adds harmonics for perceived bass
-- **Mix** (0–100%, step 5) — wet/dry blend
+- **Sub Bass Gain** (0–24 dB, step 0.5) — Gain added to the sub-bass frequencies.
+- **Harmonics** (0–100%, step 5) — Psychoacoustic upper harmonics mix to enhance perceived bass on small speakers.
 - **Output Gain** (±12 dB, step 0.5)
 
 ### Crystalizer menu
@@ -74,8 +74,7 @@ Bassboost:
   Enable: ON
   Crossover: 80 Hz
   Sub Bass Gain: +12 dB
-  Drive: 60%
-  Mix: 100%
+  Harmonics: 40%
   Output Gain: 0 dB
 ```
 
@@ -91,7 +90,7 @@ apps/onplay.c                       — Go to Album item in WPS context menu
 lib/rbcodec/SOURCES                 — bassboost.c + crystalizer.c
 lib/rbcodec/dsp/dsp_proc_database.h — BASSBOOST + CRYSTALIZER registered
 lib/rbcodec/dsp/dsp_proc_settings.h — Includes both headers
-lib/rbcodec/dsp/bassboost.c/.h      — Simplified: fixed sub-bass gain + drive + hard limiter
+lib/rbcodec/dsp/bassboost.c/.h      — Sub-bass isolator + Psychoacoustic Harmonics + Soft Clipper
 lib/rbcodec/dsp/crystalizer.c/.h    — 2-band transient enhancer with mix
 ```
 
@@ -113,8 +112,8 @@ Copy `rockbox.ipod` to `/.rockbox/` on the iPod. Also copy `build-ipod6g/apps/la
 
 All DSP math is **fixed-point integer** (S7.24 / S15.16 / Q31) targeting ARM926EJ-S. Biquads, gain tables, envelope followers, and saturation use `FRACMUL` / `fp_factor` / `fp_sincos`.
 
-- **Cubic soft-clip**: `(3x−x³)/2`, input scaled up to 4×
-- **Hard limiter**: clips boosted bass at ±1.0 (0 dBFS) to prevent overflow
+- **Master Soft Clipper**: Dynamic waveshaper based on `soft_over = headroom - (headroom * headroom) / (headroom + over)`. Prevents wrap-around distortion and limits 64-bit bounds.
+- **Psychoacoustic Harmonics**: Full-wave rectification `abs(x)` followed by a 1-pole DC blocker to generate even-order upper harmonics.
 - **Crystalizer 2-band**: LR2 series — LP@60 → LP@3000 = band 0, remainder = band 1
 
 ## WPS Context Menu — Go to Album
