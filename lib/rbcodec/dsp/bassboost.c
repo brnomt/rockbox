@@ -258,6 +258,7 @@ static void bassboost_process(struct dsp_proc_entry *this,
 
             /* Envelope follower (peak detection with attack/release) */
             int32_t level = (sub < 0) ? -sub : sub;
+            level >>= (WORD_FRACBITS - 24); /* Escalar de S.27 a Q24 (UNITY) */
             int32_t coeff = (level > env_state[ch])
                           ? attack_coeff
                           : release_coeff;
