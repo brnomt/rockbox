@@ -50,16 +50,18 @@
 #define UNITY       (1L << 24)
 #define MAX_CH      2
 
-/* Upward compression threshold (fixed at -12 dB = 0.25 in Q24).
- * Bass below this level gets boosted; bass above passes through. */
-#define COMP_THRESH ((int32_t)(UNITY / 4))
+/* Upward compression threshold for Normal mode.
+ * Set to UNITY (0 dBFS) so it acts as a dynamic maximizer:
+ * full boost is applied to all bass, except peaks near 0 dBFS 
+ * which are smoothly compressed to prevent hard clipping. */
+#define COMP_THRESH UNITY
 
-/* OTT mode: upward+downward compression toward central target.
- * All signals are pushed toward OTT_TARGET (-12 dB).
+/* OTT mode: upward+downward compression toward central target (-12 dB).
+ * All signals are pushed toward OTT_TARGET.
  * Upward: ratio^4 curve from max_up_gain → 1.0.
  * Downward: ~4:1 (75% blend toward ∞:1), clamped to OTT_MIN_DOWN_GAIN.
  * Make-up gain compensates downward attenuation (≈ +2 dB). */
-#define OTT_TARGET        COMP_THRESH
+#define OTT_TARGET        ((int32_t)(UNITY / 4))
 #define OTT_MIN_DOWN_GAIN (UNITY / 16)     /* -24 dB floor */
 #define OTT_DOWN_STRENGTH ((UNITY * 3) / 4) /* ~4:1 ratio feel (75% of ∞:1) */
 #define OTT_MAKEUP_GAIN   ((UNITY * 5) / 4) /* +2 dB (softer ratio needs less) */
@@ -260,7 +262,7 @@ static void bassboost_process(struct dsp_proc_entry *this,
             int32_t level = (sub < 0) ? -sub : sub;
             level >>= (WORD_FRACBITS - 24); /* Escalar de S.27 a Q24 (UNITY) */
             int32_t coeff = (level > env_state[ch])
-                          ? attack_coeff
+                          ? 0   /* Instant attack to prevent transient clipping */
                           : release_coeff;
             int32_t coeff_inv = UNITY - coeff;
             env_state[ch] = (int32_t)(
