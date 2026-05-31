@@ -71,7 +71,7 @@ static int32_t output_gain    = UNITY;
 /* Psychoacoustic Harmonics Generator */
 static int32_t harmonics_gain = 0;
 static int64_t dc_state[MAX_CH];
-static int32_t last_even_harm[MAX_CH];
+static int64_t last_even_harm[MAX_CH];
 static int32_t dc_coeff;
 
 /* ------------------------------------------------------------------ */
@@ -226,34 +226,32 @@ static void bassboost_process(struct dsp_proc_entry *this,
             int64_t wet = ((int64_t)sub * boost_gain) >> 24;
 
             /* Psychoacoustic Harmonics (MaxxBass principle) */
-            int32_t harm = 0;
+            int64_t harm = 0;
             if (harmonics_gain > 0)
             {
                 /* Generate even harmonics via full-wave rectification */
                 int64_t even_gen = (wet < 0) ? -wet : wet;
-                if (even_gen > INT32_MAX) even_gen = INT32_MAX;
                 
                 /* 1-pole DC Blocker to remove the 0 Hz offset */
                 int64_t hp_out = even_gen - last_even_harm[ch] + 
                                  ((dc_state[ch] * dc_coeff) >> 24);
                 
-                /* Prevent values from overflowing. */
-                if (hp_out > INT32_MAX) hp_out = INT32_MAX;
-                if (hp_out < INT32_MIN) hp_out = INT32_MIN;
-                
-                last_even_harm[ch] = (int32_t)even_gen;
+                last_even_harm[ch] = even_gen;
                 dc_state[ch] = hp_out;
 
-                harm = (int32_t)((hp_out * harmonics_gain) >> 24);
+                harm = (hp_out * harmonics_gain) >> 24;
             }
 
             /* Additive mixing: inject only the extra bass gain into the
              * original signal. When wet = sub (no boost), output = x. */
-            int32_t delta_bass = wet - sub;
+            int64_t delta_bass = wet - sub;
             int64_t raw_result = (int64_t)x + delta_bass + harm;
 
             /* Apply output gain */
-            int64_t g_result = (raw_result * output_gain) >> 24;
+            /* Pre-shift raw_result to avoid massive 64-bit int overflows 
+             * when multiplying huge bass peaks by output_gain */
+            int64_t g_result = (raw_result >> 8) * output_gain;
+            g_result >>= 16; /* 8 + 16 = 24 bits for Q24 */
 
             /* ── Master Soft Clipper (Waveshaper) ─────────────────────
              * Prevents hard clipping at the DAC without pumping.
@@ -272,9 +270,11 @@ static void bassboost_process(struct dsp_proc_entry *this,
             {
                 int64_t over = abs_g - thresh;
                 int64_t headroom = max_val - thresh;
-                /* soft_over = (over * headroom) / (headroom + over) */
-                int64_t soft_over = (over * headroom) / (headroom + over);
+                /* Rewrite the soft_over formula to avoid 64-bit multiplication overflow. 
+                 * Mathematically identical to (over * headroom) / (headroom + over). */
+                int64_t soft_over = headroom - (headroom * headroom) / (headroom + over);
                 int64_t y = thresh + soft_over;
+                if (y > max_val) y = max_val; /* Absolute safety limit */
                 result = (int32_t)((g_result < 0) ? -y : y);
             }
 
