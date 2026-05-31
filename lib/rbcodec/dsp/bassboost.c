@@ -89,6 +89,12 @@ static int32_t env_state[MAX_CH];
 static int32_t attack_coeff;
 static int32_t release_coeff;
 
+/* Psychoacoustic Harmonics Generator */
+static int32_t harmonics_gain = 0;
+static int64_t dc_state[MAX_CH];
+static int32_t last_even_harm[MAX_CH];
+static int32_t dc_coeff;
+
 /* Gain smoother state and coefficient (OTT mode, anti-zipper) */
 static int32_t gain_sm[MAX_CH];
 static int32_t gain_sm_coeff;
@@ -219,6 +225,11 @@ static void setup_filter(int crossover_hz, unsigned long fs)
     lpf1.coefs[3] = coefs[3]; lpf2.coefs[3] = coefs[3];
     lpf1.coefs[4] = coefs[4]; lpf2.coefs[4] = coefs[4];
     lpf1.shift = 8;           lpf2.shift = 8;
+
+    /* DC blocker at 10 Hz for the harmonics generator */
+    int32_t fc = 10;
+    int32_t w = (fc * 2 * 31416) / 10000; /* 2 * pi * fc */
+    dc_coeff = UNITY - (int32_t)(((int64_t)UNITY * w) / fs);
 }
 
 static void flush_filter(void)
@@ -226,6 +237,8 @@ static void flush_filter(void)
     filter_flush(&lpf1);
     filter_flush(&lpf2);
     memset(env_state, 0, sizeof(env_state));
+    memset(dc_state, 0, sizeof(dc_state));
+    memset(last_even_harm, 0, sizeof(last_even_harm));
 
     gain_sm[0] = -1;
     gain_sm[1] = -1;
@@ -275,10 +288,31 @@ static void bassboost_process(struct dsp_proc_entry *this,
             dyn_gain = gain_sm[ch];
             int32_t wet = (int32_t)(((int64_t)sub * dyn_gain) >> 24);
 
+            /* Psychoacoustic Harmonics (MaxxBass principle) */
+            int32_t harm = 0;
+            if (harmonics_gain > 0)
+            {
+                /* Generate even harmonics via full-wave rectification */
+                int32_t even_gen = (wet == INT32_MIN) ? INT32_MAX : ((wet < 0) ? -wet : wet);
+                
+                /* 1-pole DC Blocker to remove the 0 Hz offset */
+                int64_t hp_out = (int64_t)even_gen - last_even_harm[ch] + 
+                                 ((dc_state[ch] * dc_coeff) >> 24);
+                last_even_harm[ch] = even_gen;
+                dc_state[ch] = hp_out;
+                
+                /* Clip to prevent math overflow */
+                int32_t hp_out_32 = (int32_t)hp_out;
+                if (hp_out > INT32_MAX) hp_out_32 = INT32_MAX;
+                if (hp_out < INT32_MIN) hp_out_32 = INT32_MIN;
+
+                harm = (int32_t)(((int64_t)hp_out_32 * harmonics_gain) >> 24);
+            }
+
             /* Additive mixing: inject only the extra bass gain into the
              * original signal. When wet = sub (no boost), output = x. */
             int32_t delta_bass = wet - sub;
-            int64_t raw_result = (int64_t)x + delta_bass;
+            int64_t raw_result = (int64_t)x + delta_bass + harm;
 
             /* Apply output gain */
             int64_t g_result = (raw_result * output_gain) >> 24;
@@ -345,6 +379,8 @@ static bool bassboost_update(struct dsp_config *dsp,
     boost_gain = db_tenths_to_gain(settings->sub_bass_gain);
     if (boost_gain > (UNITY * 16))
         boost_gain = UNITY * 16;
+    /* Harmonics gain (0 to 100%) mapped to 0 to UNITY */
+    harmonics_gain = ((int64_t)settings->harmonics * UNITY) / 100;
 
     /* Output gain */
     output_gain = db_tenths_to_gain(settings->output_gain);

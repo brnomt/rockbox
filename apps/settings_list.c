@@ -1926,9 +1926,7 @@ const struct settings_list settings[] = {
     OFFON_SETTING(F_SOUNDSETTING, bassboost_settings.enabled,
                   LANG_BASSBOOST_ENABLE, false,
                   "bassboost enable", bassboost_set_bool),
-    OFFON_SETTING(F_SOUNDSETTING, bassboost_settings.ott_mode,
-                  LANG_BASSBOOST_OTT, false,
-                  "bassboost ott mode", bassboost_set_bool),
+
 INT_SETTING_NOWRAP(F_SOUNDSETTING, bassboost_settings.crossover_hz,
                    LANG_BASSBOOST_CROSSOVER, 100,
                    "bassboost crossover", UNIT_INT, 40, 500,

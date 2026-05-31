@@ -37,9 +37,10 @@
 struct bassboost_settings
 {
     bool enabled;
-    bool ott_mode;           /* OTT-style: upward + downward compression toward target */
+
     int crossover_hz;        /* Hz, low-pass cutoff (default 100) */
     int sub_bass_gain;       /* 0-240, 0.1 dB max boost for quiet bass (default 120 = +12 dB) */
+    int harmonics;           /* 0-100% harmonics mix */
     int output_gain;         /* -120 to +120, 0.1 dB (default 0) */
 };
 

@@ -228,9 +228,7 @@ static int timestretch_callback(int action,
     MENUITEM_SETTING(bassboost_enabled,
                      &global_settings.bassboost_settings.enabled,
                      lowlatency_callback);
-    MENUITEM_SETTING(bassboost_ott_mode,
-                     &global_settings.bassboost_settings.ott_mode,
-                     lowlatency_callback);
+
     MENUITEM_SETTING(bassboost_crossover,
                      &global_settings.bassboost_settings.crossover_hz,
                      lowlatency_callback);
@@ -241,7 +239,7 @@ static int timestretch_callback(int action,
                       &global_settings.bassboost_settings.output_gain,
                       lowlatency_callback);
      MAKE_MENU(bassboost_menu, ID2P(LANG_BASSBOOST), NULL, Icon_NOICON,
-               &bassboost_enabled, &bassboost_ott_mode,
+               &bassboost_enabled,
                &bassboost_crossover,
                &bassboost_sub_bass_gain,
                &bassboost_outgain);

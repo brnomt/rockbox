@@ -17631,20 +17631,7 @@
     *: "Drive"
   </voice>
 </phrase>
-<phrase>
-  id: LANG_BASSBOOST_OTT
-  desc: bassboost menu - OTT mode toggle (upward+downward compression)
-  user: core
-  <source>
-    *: "OTT Mode"
-  </source>
-  <dest>
-    *: "OTT Mode"
-  </dest>
-  <voice>
-    *: "OTT Mode"
-  </voice>
-</phrase>
+
 <phrase>
   id: LANG_CRYSTALIZER
   desc: in sound settings
