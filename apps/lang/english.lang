@@ -17631,7 +17631,20 @@
     *: "Drive"
   </voice>
 </phrase>
-
+<phrase>
+  id: LANG_BASSBOOST_HARMONICS
+  desc: bassboost menu
+  user: core
+  <source>
+    *: "Harmonics"
+  </source>
+  <dest>
+    *: "Harmonics"
+  </dest>
+  <voice>
+    *: "Harmonics"
+  </voice>
+</phrase>
 <phrase>
   id: LANG_CRYSTALIZER
   desc: in sound settings
