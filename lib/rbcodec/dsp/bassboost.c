@@ -85,13 +85,9 @@ static int32_t output_gain    = UNITY;
 /* Envelope follower state (per channel) */
 static int32_t env_state[MAX_CH];
 
-/* Master limiter state (per channel) */
-static int32_t lim_state[MAX_CH];
-
 /* Precomputed envelope coefficients (recalculated on sample rate change) */
 static int32_t attack_coeff;
 static int32_t release_coeff;
-static int32_t lim_release_coeff;
 
 /* Gain smoother state and coefficient (OTT mode, anti-zipper) */
 static int32_t gain_sm[MAX_CH];
@@ -173,9 +169,6 @@ static void setup_envelope(unsigned long fs)
 
     int32_t release_t16 = (ENV_RELEASE_MS * 65536) / 1000;
     release_coeff = fp_factor(-fp_div(65536, (long)release_t16 * (long)fs, 16), 16) << 8;
-    
-    int32_t lim_release_t16 = (20 * 65536) / 1000; /* 20 ms limiter release */
-    lim_release_coeff = fp_factor(-fp_div(65536, (long)lim_release_t16 * (long)fs, 16), 16) << 8;
 }
 
 /* ------------------------------------------------------------------ */
@@ -233,7 +226,7 @@ static void flush_filter(void)
     filter_flush(&lpf1);
     filter_flush(&lpf2);
     memset(env_state, 0, sizeof(env_state));
-    memset(lim_state, 0, sizeof(lim_state));
+
     gain_sm[0] = -1;
     gain_sm[1] = -1;
 }
@@ -341,7 +334,7 @@ static void bassboost_process(struct dsp_proc_entry *this,
                 }
 
                 /* Smooth gain transitions (anti-zipper) */
-                if (gain_sm[ch] == -1)
+                if (gain_sm[ch] == -1 || dyn_gain < gain_sm[ch])
                     gain_sm[ch] = dyn_gain;
                 else
                     gain_sm[ch] = (int32_t)(
@@ -383,32 +376,14 @@ static void bassboost_process(struct dsp_proc_entry *this,
                 wet = (int32_t)(((int64_t)sub * dyn_gain) >> 24);
             }
 
-            /* Additive mixing with 64-bit headroom to prevent any hard clip */
+            /* Additive mixing: inject only the extra bass gain into the
+             * original signal. When wet = sub (no boost), output = x.
+             * Saturating addition prevents int32 overflow on peaks. */
             int32_t delta_bass = wet - sub;
-            int64_t raw_result = (int64_t)x + delta_bass;
+            int32_t result = sat_add(x, delta_bass);
 
-            /* ── Master Peak Limiter ────────────────────────────────── */
-            int64_t abs_raw = (raw_result < 0) ? -raw_result : raw_result;
-            int32_t peak = (int32_t)(abs_raw >> (WORD_FRACBITS - 24));
-
-            /* Instant attack (0 ms) to catch all transients, dedicated release */
-            int32_t lim_coeff = (peak > lim_state[ch]) ? 0 : lim_release_coeff;
-            lim_state[ch] = (int32_t)(
-                ((int64_t)lim_state[ch] * lim_coeff) >> 24) +
-                (int32_t)(((int64_t)peak * (UNITY - lim_coeff)) >> 24);
-
-            int32_t lim_gain = UNITY;
-            if (lim_state[ch] > UNITY)
-            {
-                /* Calculate reduction to keep peak exactly at UNITY (0 dBFS) */
-                lim_gain = (lim_state[ch] > (UNITY * 16))
-                         ? (UNITY / 16)  /* Floor against extreme overflow */
-                         : (int32_t)( ((int64_t)UNITY * UNITY) / lim_state[ch] );
-            }
-
-            /* Apply limiter gain and output gain */
-            int32_t final_gain = (int32_t)(((int64_t)lim_gain * output_gain) >> 24);
-            int32_t result = (int32_t)((raw_result * final_gain) >> 24);
+            /* Output gain (saturating: prevents overflow at any setting) */
+            result = sat_mul_q24(result, output_gain);
 
             if (ch == 0) outL = result;
             else         outR = result;
