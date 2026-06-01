@@ -236,6 +236,11 @@ static void bassboost_process(struct dsp_proc_entry *this,
                 int64_t hp_out = even_gen - last_even_harm[ch] + 
                                  ((dc_state[ch] * dc_coeff) >> 24);
                 
+                /* Clamp DC state to prevent int64 overflow on heavy bass */
+                int64_t max_state = (int64_t)1 << 48;  /* ~2^48 safe limit */
+                if (hp_out > max_state) hp_out = max_state;
+                else if (hp_out < -max_state) hp_out = -max_state;
+                
                 last_even_harm[ch] = even_gen;
                 dc_state[ch] = hp_out;
 
