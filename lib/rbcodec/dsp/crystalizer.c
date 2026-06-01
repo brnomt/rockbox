@@ -176,7 +176,8 @@ static void crystalizer_process(struct dsp_proc_entry *this,
 
             for (int b = 0; b < NUM_BANDS; b++)
             {
-                int32_t d2 = bands[b] - 2 * band_x1[b][ch] + band_x2[b][ch];
+                int64_t d2_64 = (int64_t)bands[b] - 2 * (int64_t)band_x1[b][ch] + (int64_t)band_x2[b][ch];
+                int32_t d2 = (d2_64 > INT32_MAX) ? INT32_MAX : (d2_64 < INT32_MIN) ? INT32_MIN : (int32_t)d2_64;
 
                 band_x2[b][ch] = band_x1[b][ch];
                 band_x1[b][ch] = bands[b];

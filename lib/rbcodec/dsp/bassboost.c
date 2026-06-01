@@ -229,8 +229,8 @@ static void bassboost_process(struct dsp_proc_entry *this,
             int64_t harm = 0;
             if (harmonics_gain > 0)
             {
-                /* Generate even harmonics via full-wave rectification */
-                int64_t even_gen = (wet < 0) ? -wet : wet;
+                /* Generate even harmonics from original sub-bass (not amplified) */
+                int64_t even_gen = (sub < 0) ? -(int64_t)sub : (int64_t)sub;
                 
                 /* 1-pole DC Blocker to remove the 0 Hz offset */
                 int64_t hp_out = even_gen - last_even_harm[ch] + 
