@@ -5,23 +5,17 @@
  *   Jukebox    |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
  *                     \/            \/     \/    \/            \/
  *
- * Bass booster - upward compressor on sub-bass
+ * Bass booster - sub-bass EQ with optional psychoacoustic harmonics
  * Fixed-point implementation for ARM targets (iPod Classic 6/7)
  *
  * Signal flow:
- *   Input -> LR4 crossover (2 cascaded LP biquads) -> Envelope follower
- *           -> Dynamics (upward ratio^4, downward ~4:1)
- *           -> Gain smoother (5 ms anti-zipper)
- *           -> Additive mix (delta injection, dry path untouched)
- *           -> Output
+ *   Input -> LR4 crossover (2 cascaded LP biquads)
+ *           -> Constant sub-bass boost (additive delta injection)
+ *           -> Optional even-harmonic generator (MaxxBass-style)
+ *           -> Output gain -> Soft clipper -> Output
  *
- * LR4 (-24 dB/octave) cleanly isolates sub-bass from mids/highs.
- * Envelope follower uses moderate attack (5 ms) and slow release
- * (100 ms) to track the amplitude contour — not individual cycles.
- * OTT mode uses ~4:1 downward ratio (not ∞:1) for musical
- * compression without squashing. Gain smoothing in both modes
- * prevents zipper artifacts. Dry signal passes through unmodified.
- * Saturating addition prevents int32 overflow. No distortion.
+ * LR4 (-24 dB/octave) isolates sub-bass. Boost is applied to the full
+ * sub band (not dynamics-dependent). Harmonics require sub_bass_gain > 0.
  *
  * Copyright (C) 2024
  *
@@ -47,21 +41,11 @@
 #include "dsp_misc.h"
 #include "platform.h"
 
-#define UNITY       (1L << 24)
-#define MAX_CH      2
+#define UNITY              (1L << 24)
+#define MAX_CH             2
+#define CROSSOVER_MIN_HZ   40
+#define CROSSOVER_MAX_HZ   500
 
-/* Upward compression threshold for Normal mode.
- * Set to UNITY (0 dBFS) so it acts as a dynamic maximizer:
- * full boost is applied to all bass, except peaks near 0 dBFS 
- * which are smoothly compressed to prevent hard clipping. */
-#define COMP_THRESH UNITY
-
-/* OTT mode: upward+downward compression toward central target (-12 dB).
- * All signals are pushed toward OTT_TARGET.
- * Upward: ratio^4 curve from max_up_gain → 1.0.
- * Downward: ~4:1 (75% blend toward ∞:1), clamped to OTT_MIN_DOWN_GAIN.
- * Make-up gain compensates downward attenuation (≈ +2 dB). */
-#define OTT_TARGET        ((int32_t)(UNITY / 4))
 static struct bassboost_settings curr_set;
 static struct dsp_filter lpf1, lpf2;
 
@@ -95,33 +79,6 @@ static FORCE_INLINE int32_t biquad_step(struct dsp_filter *f, int ch, int32_t x)
 }
 
 /* ------------------------------------------------------------------ */
-/*  Saturating addition: prevent int32 overflow from compressor gain    */
-/* ------------------------------------------------------------------ */
-static FORCE_INLINE int32_t sat_add(int32_t a, int32_t b)
-{
-    if (b > 0 && a > INT32_MAX - b)
-        return INT32_MAX;
-    if (b < 0 && a < INT32_MIN - b)
-        return INT32_MIN;
-    return a + b;
-}
-
-/* ------------------------------------------------------------------ */
-/*  Saturated Q24 multiply: gain applied with int32 overflow clamp      */
-/* ------------------------------------------------------------------ */
-static FORCE_INLINE int32_t sat_mul_q24(int32_t x, int32_t gain)
-{
-    if (gain == UNITY)
-        return x;
-    int64_t tmp = ((int64_t)x * gain) >> 24;
-    if (tmp > INT32_MAX)
-        return INT32_MAX;
-    if (tmp < INT32_MIN)
-        return INT32_MIN;
-    return (int32_t)tmp;
-}
-
-/* ------------------------------------------------------------------ */
 /*  Convert decibels-tenths to Q24 gain factor                        */
 /* ------------------------------------------------------------------ */
 static int32_t db_tenths_to_gain(int db_tenths)
@@ -139,14 +96,35 @@ static int32_t db_tenths_to_gain(int db_tenths)
 }
 
 /* ------------------------------------------------------------------ */
+/*  Clamp crossover to UI range and below Nyquist                     */
+/* ------------------------------------------------------------------ */
+static int clamp_crossover_hz(int crossover_hz, unsigned long fs)
+{
+    if (crossover_hz < CROSSOVER_MIN_HZ)
+        crossover_hz = CROSSOVER_MIN_HZ;
+    else if (crossover_hz > CROSSOVER_MAX_HZ)
+        crossover_hz = CROSSOVER_MAX_HZ;
 
+    if (fs >= 2)
+    {
+        unsigned long nyquist_max = fs / 2 - 1;
+        if (nyquist_max < (unsigned long)CROSSOVER_MIN_HZ)
+            nyquist_max = CROSSOVER_MIN_HZ;
+        if ((unsigned long)crossover_hz > nyquist_max)
+            crossover_hz = (int)nyquist_max;
+    }
+
+    return crossover_hz;
+}
+
+/* ------------------------------------------------------------------ */
 /*  Filter setup: low-pass to isolate sub-bass content                 */
 /* ------------------------------------------------------------------ */
 static void setup_filter(int crossover_hz, unsigned long fs)
 {
     /* LR4 crossover: two cascaded Butterworth LP biquads (-24 dB/oct).
      * Same format as crystalizer: cos/sin s0.31 -> s0.24,
-     * FRACMUL storage, shift=6. */
+     * FRACMUL storage, shift=8. */
     unsigned long phase = fp_div(crossover_hz, fs, 32);
     long cos_w0, sin_w0;
     sin_w0 = fp_sincos(phase, &cos_w0);
@@ -201,18 +179,18 @@ static void bassboost_process(struct dsp_proc_entry *this,
 {
     (void)this;
     struct dsp_buffer *buf = *buf_p;
-    int count     = buf->remcount;
-    int32_t *out0 = buf->p32[0];
-    int32_t *out1 = buf->p32[1];
-    int num_ch    = buf->format.num_channels;
+    int count      = buf->remcount;
+    int32_t *out0  = buf->p32[0];
+    int32_t *out1  = buf->p32[1];
+    const int num_chan = MIN(buf->format.num_channels, MAX_CH);
 
     for (int n = 0; n < count; n++)
     {
         int32_t L = out0[n];
-        int32_t R = (num_ch > 1) ? out1[n] : L;
+        int32_t R = (num_chan > 1) ? out1[n] : L;
         int32_t outL, outR;
 
-        for (int ch = 0; ch < num_ch; ch++)
+        for (int ch = 0; ch < num_chan; ch++)
         {
             int32_t x = (ch == 0) ? L : R;
 
@@ -221,8 +199,7 @@ static void bassboost_process(struct dsp_proc_entry *this,
             int32_t sub = biquad_step(&lpf1, ch, x);
             sub = biquad_step(&lpf2, ch, sub);
 
-            /* ═══ RAW EQ MODE: Constant EQ Boost ═══
-             * Apply full boost unconditionally. No ducking, no compression. */
+            /* Constant sub-bass boost (additive delta injection) */
             int64_t wet = ((int64_t)sub * boost_gain) >> 24;
 
             /* Psychoacoustic Harmonics (MaxxBass principle) */
@@ -231,37 +208,31 @@ static void bassboost_process(struct dsp_proc_entry *this,
             {
                 /* Generate even harmonics from original sub-bass (not amplified) */
                 int64_t even_gen = (sub < 0) ? -(int64_t)sub : (int64_t)sub;
-                
+
                 /* 1-pole DC Blocker to remove the 0 Hz offset */
-                int64_t hp_out = even_gen - last_even_harm[ch] + 
+                int64_t hp_out = even_gen - last_even_harm[ch] +
                                  ((dc_state[ch] * dc_coeff) >> 24);
-                
+
                 /* Clamp DC state to prevent int64 overflow on heavy bass */
                 int64_t max_state = (int64_t)1 << 48;  /* ~2^48 safe limit */
                 if (hp_out > max_state) hp_out = max_state;
                 else if (hp_out < -max_state) hp_out = -max_state;
-                
+
                 last_even_harm[ch] = even_gen;
                 dc_state[ch] = hp_out;
 
                 harm = (hp_out * harmonics_gain) >> 24;
             }
 
-            /* Additive mixing: inject only the extra bass gain into the
-             * original signal. When wet = sub (no boost), output = x. */
+            /* When wet = sub (no boost), output = x unless harmonics are on */
             int64_t delta_bass = wet - sub;
             int64_t raw_result = (int64_t)x + delta_bass + harm;
 
-            /* Apply output gain */
-            /* Pre-shift raw_result to avoid massive 64-bit int overflows 
-             * when multiplying huge bass peaks by output_gain */
+            /* Pre-shift raw_result to avoid 64-bit overflow with large output_gain */
             int64_t g_result = (raw_result >> 8) * output_gain;
             g_result >>= 16; /* 8 + 16 = 24 bits for Q24 */
 
-            /* ── Master Soft Clipper (Waveshaper) ─────────────────────
-             * Prevents hard clipping at the DAC without pumping.
-             * Linear up to -1.16 dBFS, soft rounds peaks above that.
-             * In Rockbox DSP (S0.31 format), full scale is roughly INT32_MAX. */
+            /* Master soft clipper: linear up to 7/8 FS (~-1.9 dBFS), then soft knee */
             int64_t max_val = ((1LL << 31) - 1);
             int64_t thresh  = (max_val * 7) / 8;
             int64_t abs_g   = (g_result < 0) ? -g_result : g_result;
@@ -275,11 +246,10 @@ static void bassboost_process(struct dsp_proc_entry *this,
             {
                 int64_t over = abs_g - thresh;
                 int64_t headroom = max_val - thresh;
-                /* Rewrite the soft_over formula to avoid 64-bit multiplication overflow. 
-                 * Mathematically identical to (over * headroom) / (headroom + over). */
+                /* Mathematically identical to (over * headroom) / (headroom + over) */
                 int64_t soft_over = headroom - (headroom * headroom) / (headroom + over);
                 int64_t y = thresh + soft_over;
-                if (y > max_val) y = max_val; /* Absolute safety limit */
+                if (y > max_val) y = max_val;
                 result = (int32_t)((g_result < 0) ? -y : y);
             }
 
@@ -287,11 +257,11 @@ static void bassboost_process(struct dsp_proc_entry *this,
             else         outR = result;
         }
 
-        if (num_ch == 1)
+        if (num_chan == 1)
             outR = outL;
 
         out0[n] = outL;
-        if (num_ch > 1)
+        if (num_chan > 1)
             out1[n] = outR;
     }
 }
@@ -310,15 +280,20 @@ static bool bassboost_update(struct dsp_config *dsp,
         return false;
 
     curr_set = *settings;
+    curr_set.crossover_hz = clamp_crossover_hz(curr_set.crossover_hz, fs);
 
-    setup_filter(settings->crossover_hz, fs);
+    setup_filter(curr_set.crossover_hz, fs);
 
     /* Boost gain: 0-240 maps to 0-24 dB (default 120 = +12 dB) */
     boost_gain = db_tenths_to_gain(settings->sub_bass_gain);
     if (boost_gain > (UNITY * 16))
         boost_gain = UNITY * 16;
-    /* Harmonics gain (0 to 100%) mapped to 0 to UNITY */
-    harmonics_gain = ((int64_t)settings->harmonics * UNITY) / 100;
+
+    /* Harmonics only when sub boost is active */
+    if (settings->sub_bass_gain > 0 && settings->harmonics > 0)
+        harmonics_gain = ((int64_t)settings->harmonics * UNITY) / 100;
+    else
+        harmonics_gain = 0;
 
     /* Output gain */
     output_gain = db_tenths_to_gain(settings->output_gain);

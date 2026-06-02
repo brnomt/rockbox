@@ -5,18 +5,17 @@
  *   Jukebox    |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
  *                     \/            \/     \/    \/            \/
  *
- * Bass booster - upward compressor on sub-bass
+ * Bass booster - sub-bass EQ with optional psychoacoustic harmonics
  * Fixed-point implementation for ARM targets (iPod Classic 6/7)
  *
  * Signal flow:
- *   Input -> Sub-bass extraction (LPF) -> Envelope follower
- *           -> Upward compressor -> Mix with dry (volume-matched)
- *           -> Soft limit -> Output
+ *   Input -> LR4 crossover (2 cascaded LP biquads)
+ *           -> Constant sub-bass boost (additive delta injection)
+ *           -> Optional even-harmonic generator (MaxxBass-style)
+ *           -> Output gain -> Soft clipper -> Output
  *
- * Low-pass filter isolates sub-bass. Upward compressor boosts bass
- * only when it falls below a threshold (-12 dB), making quiet bass
- * louder without increasing peaks. Volume matching keeps overall
- * level constant. No hard-clipping, no saturation, no distortion.
+ * Dry mids/highs pass through; only the extracted sub band is boosted.
+ * A master soft clipper limits peaks near full scale.
  *
  * Copyright (C) 2024
  *
@@ -39,9 +38,9 @@ struct bassboost_settings
     bool enabled;
 
     int crossover_hz;        /* Hz, low-pass cutoff (default 100) */
-    int sub_bass_gain;       /* 0-240, 0.1 dB max boost for quiet bass (default 120 = +12 dB) */
-    int harmonics;           /* 0-100% harmonics mix */
-    int output_gain;         /* -120 to +120, 0.1 dB (default 0) */
+    int sub_bass_gain;       /* 0-240, 0.1 dB sub boost (0 = off, default 120 = +12 dB) */
+    int harmonics;           /* 0-100% harmonics mix (requires sub_bass_gain > 0) */
+    int output_gain;         /* -120 to +120, 0.1 dB master trim (default 0) */
 };
 
 void dsp_set_bassboost(const struct bassboost_settings *settings);
