@@ -49,6 +49,9 @@ bool tagtree_get_subentry_filename(char *buf, size_t bufsize);
 bool tagtree_entries_iterate(struct tagcache_search *tcs,
                              bool (*action_cb)(const char *file_name),
                              char *buf, size_t buf_sz);
+bool tagtree_goto_album(void);
+bool tagtree_is_goto_album_pending(void);
+void tagtree_clear_goto_album_pending(void);
 
 #endif
 #endif

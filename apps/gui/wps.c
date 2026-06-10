@@ -830,6 +830,10 @@ long gui_wps_show(void)
                     return GO_TO_ROOT;
                 else if (retval == ONPLAY_REVEAL_FILE)
                     return GO_TO_FILEBROWSER;
+#ifdef HAVE_TAGCACHE
+                else if (retval == ONPLAY_GOTO_ALBUM)
+                    return GO_TO_DBBROWSER;
+#endif
                 else if (retval == ONPLAY_PLAYLIST)
                     return GO_TO_PLAYLIST_VIEWER;
                 else if (retval == ONPLAY_PLUGIN)

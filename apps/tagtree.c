@@ -2871,3 +2871,142 @@ int tagtree_get_icon(struct tree_context* c)
 
     return icon;
 }
+
+static bool goto_album_pending = false;
+
+bool tagtree_is_goto_album_pending(void)
+{
+    return goto_album_pending;
+}
+
+void tagtree_clear_goto_album_pending(void)
+{
+    goto_album_pending = false;
+}
+
+/* Navigate the database browser to show all tracks from the currently
+ * playing track's album. This sets up the tagtree state to match what
+ * would happen if the user navigated through Database > "Same as currently
+ * played track" > "Album". Sets a pending flag so root_menu's browser()
+ * function knows to use this state instead of restoring the saved DB
+ * browser position.
+ *
+ * Returns true on success, false on failure (e.g. no track playing,
+ * no album tag, tagcache not ready, or "same" menu not found).
+ */
+bool tagtree_goto_album(void)
+{
+    struct mp3entry *id3 = audio_current_track();
+    if (!id3 || !id3->album || !id3->album[0])
+        return false;
+
+    if (!tagcache_is_usable())
+        return false;
+
+    /* Find the "same" menu (defined as %menu_start "same" in tagnavi.config) */
+    int same_menu_idx = -1;
+    for (int i = 0; i < menu_count; i++)
+    {
+        if (!strcasecmp(menus[i]->id, "same"))
+        {
+            same_menu_idx = i;
+            break;
+        }
+    }
+
+    if (same_menu_idx < 0)
+        return false;
+
+    struct menu_root *same_menu = menus[same_menu_idx];
+
+    /* Find the "Album" entry within the "same" menu.
+     * It's identified as a menu_next entry whose search instruction
+     * has a clause on tag_album with a runtime source (from #album#). */
+    int album_entry_idx = -1;
+    for (int i = 0; i < same_menu->itemcount; i++)
+    {
+        struct menu_entry *entry = same_menu->items[i];
+        if (entry->type != menu_next)
+            continue;
+
+        struct search_instruction *si = &entry->si;
+        for (int j = 0; j < si->tagorder_count; j++)
+        {
+            for (int k = 0; k < si->clause_count[j]; k++)
+            {
+                struct tagcache_search_clause *cl = si->clause[j][k];
+                if (cl->tag == tag_album && cl->source > source_runtime)
+                {
+                    album_entry_idx = i;
+                    goto found;
+                }
+            }
+        }
+    }
+found:
+    if (album_entry_idx < 0)
+        return false;
+
+    /* Reset tagtree to root state */
+    while (tc->dirlevel > 0)
+        tagtree_exit(tc, false);
+    tc->currtable = TABLE_ROOT;
+    tc->currextra = rootmenu;
+
+    /* Step 1: Navigate from root menu into the "same" submenu.
+     * This simulates selecting the "Same as currently played track"
+     * entry (which is a menu_load/==> entry) from the main DB menu.
+     * We set up history so the back button works correctly. */
+    table_history[0] = TABLE_ROOT;
+    extra_history[0] = rootmenu;
+    tc->dirlevel = 1;
+    tc->currtable = TABLE_ROOT;
+    tc->currextra = same_menu_idx;
+    menu = same_menu;
+
+    /* Step 2: Navigate from the "same" submenu into the "Album" entry.
+     * This simulates selecting "Album" which is a menu_next entry
+     * leading to TABLE_NAVIBROWSE. */
+    table_history[1] = TABLE_ROOT;
+    extra_history[1] = same_menu_idx;
+    tc->dirlevel = 2;
+    tc->currtable = TABLE_NAVIBROWSE;
+    tc->currextra = 0;
+    tc->selected_item = 0;
+
+    csi = &same_menu->items[album_entry_idx]->si;
+
+    /* Fill in the runtime search clause with the current track's album.
+     * This replicates what tagtree_enter() does for source_runtime clauses. */
+    core_pin(tagtree_handle);
+    for (int i = 0; i < csi->tagorder_count; i++)
+    {
+        for (int j = 0; j < csi->clause_count[i]; j++)
+        {
+            struct tagcache_search_clause *cl = csi->clause[i][j];
+            if (cl->type == clause_logical_or)
+                continue;
+            if (cl->source > source_runtime)
+            {
+                int k = cl->source - source_runtime;
+                int offset = id3_to_search_mapping[k].id3_offset;
+                char **src = (char**)((char*)id3 + offset);
+                if (*src)
+                    strmemccpy(cl->str, *src, SEARCHSTR_SIZE);
+                else
+                    cl->str[0] = '\0';
+            }
+        }
+    }
+    core_unpin(tagtree_handle);
+
+    /* Set the title for the database browser status bar */
+    strmemccpy(current_title[0], id3->album, sizeof(current_title[0]));
+
+    /* Discard any selection history below our level */
+    max_history_level = 0;
+    selected_item_history[0] = 0;
+
+    goto_album_pending = true;
+    return true;
+}

@@ -68,6 +68,7 @@
 #endif
 #ifdef HAVE_TAGCACHE
 #include "tagcache.h"
+#include "tagtree.h"
 #endif
 #include "language.h"
 #include "plugin.h"
@@ -271,8 +272,15 @@ static int browser(void* param)
                 return GO_TO_PREVIOUS;
             filter = SHOW_ID3DB;
             last_ft_dirlevel = tc->dirlevel;
-            tc->dirlevel = last_db_dirlevel;
-            tc->selected_item = last_db_selection;
+            if (tagtree_is_goto_album_pending())
+            {
+                tagtree_clear_goto_album_pending();
+            }
+            else
+            {
+                tc->dirlevel = last_db_dirlevel;
+                tc->selected_item = last_db_selection;
+            }
             push_current_activity(ACTIVITY_DATABASEBROWSER);
         break;
 #endif /*HAVE_TAGCACHE*/

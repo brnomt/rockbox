@@ -988,6 +988,14 @@ static int go_to_album(void)
     if (!id3 || !id3->path)
         return 0;
 
+#ifdef HAVE_TAGCACHE
+    if (tagtree_goto_album())
+    {
+        onplay_result = ONPLAY_GOTO_ALBUM;
+        return GO_TO_DBBROWSER;
+    }
+#endif
+    /* Fallback: navigate to the file's folder in the file browser */
     strmemccpy(global_status.browse_last_folder, id3->path,
                sizeof global_status.browse_last_folder);
     onplay_result = ONPLAY_REVEAL_FILE;
