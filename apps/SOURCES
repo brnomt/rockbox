@@ -5,6 +5,9 @@ action.c
 #ifdef HAVE_RTC_ALARM
 alarm_menu.c
 #endif
+#if defined(HAVE_BACKLIGHT_BRIGHTNESS) && defined(CONFIG_RTC) && (CONFIG_RTC != 0)
+timed_brightness.c
+#endif
 abrepeat.c
 bookmark.c
 core_keymap.c

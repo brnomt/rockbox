@@ -179,6 +179,31 @@ MENUITEM_SETTING(lcd_sleep_after_backlight_off,
 #endif
 #ifdef HAVE_BACKLIGHT_BRIGHTNESS
 MENUITEM_SETTING(brightness_item, &global_settings.brightness, NULL);
+#if defined(CONFIG_RTC) && (CONFIG_RTC != 0)
+MENUITEM_SETTING(timed_brightness_enabled_item,
+                 &global_settings.timed_brightness_enabled, NULL);
+MENUITEM_SETTING(timed_brightness_day_hour_item,
+                 &global_settings.timed_brightness_day_hour, NULL);
+MENUITEM_SETTING(timed_brightness_day_min_item,
+                 &global_settings.timed_brightness_day_min, NULL);
+MENUITEM_SETTING(timed_brightness_day_level_item,
+                 &global_settings.timed_brightness_day_level, NULL);
+MENUITEM_SETTING(timed_brightness_night_hour_item,
+                 &global_settings.timed_brightness_night_hour, NULL);
+MENUITEM_SETTING(timed_brightness_night_min_item,
+                 &global_settings.timed_brightness_night_min, NULL);
+MENUITEM_SETTING(timed_brightness_night_level_item,
+                 &global_settings.timed_brightness_night_level, NULL);
+MAKE_MENU(timed_brightness_menu, ID2P(LANG_TIMED_BRIGHTNESS),
+          NULL, Icon_Menu_setting,
+          &timed_brightness_enabled_item,
+          &timed_brightness_day_hour_item,
+          &timed_brightness_day_min_item,
+          &timed_brightness_day_level_item,
+          &timed_brightness_night_hour_item,
+          &timed_brightness_night_min_item,
+          &timed_brightness_night_level_item);
+#endif /* CONFIG_RTC */
 #endif
 #endif /* HAVE_BACKLIGHT */
 #ifdef HAVE_LCD_CONTRAST
@@ -212,6 +237,9 @@ MAKE_MENU(lcd_settings,ID2P(LANG_LCD_MENU),
 # endif
 # ifdef HAVE_BACKLIGHT_BRIGHTNESS
             ,&brightness_item
+#  if defined(CONFIG_RTC) && (CONFIG_RTC != 0)
+            ,&timed_brightness_menu
+#  endif
 # endif
 #endif /* HAVE_BACKLIGHT */
 #ifdef HAVE_LCD_CONTRAST

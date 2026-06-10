@@ -29,6 +29,7 @@
 #include "scroll_engine.h"
 #include "button.h"
 #include "backlight.h"
+#include "timed_brightness.h"
 #include "sound.h"
 #include "pcm_sink.h"
 #include "settings.h"
@@ -1414,6 +1415,37 @@ const struct settings_list settings[] = {
                 DEFAULT_BRIGHTNESS_SETTING, "brightness",UNIT_INT,
                 MIN_BRIGHTNESS_SETTING, MAX_BRIGHTNESS_SETTING, 1,
                 NULL, NULL, backlight_set_brightness),
+#if defined(CONFIG_RTC) && (CONFIG_RTC != 0)
+    /* time-based automatic brightness (apps/timed_brightness.c) */
+    OFFON_SETTING(0, timed_brightness_enabled, LANG_TIMED_BRIGHTNESS,
+                  false, "timed brightness", timed_brightness_cb_bool),
+    INT_SETTING(F_NO_WRAP, timed_brightness_day_hour,
+                LANG_TIMED_BRIGHTNESS_DAY_HOUR,
+                7, "timed brightness day hour", UNIT_HOUR,
+                0, 23, 1, NULL, NULL, timed_brightness_cb_int),
+    INT_SETTING(F_NO_WRAP, timed_brightness_day_min,
+                LANG_TIMED_BRIGHTNESS_DAY_MIN,
+                0, "timed brightness day min", UNIT_MIN,
+                0, 59, 1, NULL, NULL, timed_brightness_cb_int),
+    INT_SETTING(F_NO_WRAP, timed_brightness_day_level,
+                LANG_TIMED_BRIGHTNESS_DAY_LEVEL,
+                MAX_BRIGHTNESS_SETTING, "timed brightness day level", UNIT_INT,
+                MIN_BRIGHTNESS_SETTING, MAX_BRIGHTNESS_SETTING, 1,
+                NULL, NULL, timed_brightness_cb_int),
+    INT_SETTING(F_NO_WRAP, timed_brightness_night_hour,
+                LANG_TIMED_BRIGHTNESS_NIGHT_HOUR,
+                23, "timed brightness night hour", UNIT_HOUR,
+                0, 23, 1, NULL, NULL, timed_brightness_cb_int),
+    INT_SETTING(F_NO_WRAP, timed_brightness_night_min,
+                LANG_TIMED_BRIGHTNESS_NIGHT_MIN,
+                0, "timed brightness night min", UNIT_MIN,
+                0, 59, 1, NULL, NULL, timed_brightness_cb_int),
+    INT_SETTING(F_NO_WRAP, timed_brightness_night_level,
+                LANG_TIMED_BRIGHTNESS_NIGHT_LEVEL,
+                MIN_BRIGHTNESS_SETTING, "timed brightness night level", UNIT_INT,
+                MIN_BRIGHTNESS_SETTING, MAX_BRIGHTNESS_SETTING, 1,
+                NULL, NULL, timed_brightness_cb_int),
+#endif /* CONFIG_RTC */
 #endif
     /* backlight fading */
 #if defined(HAVE_BACKLIGHT_FADING_INT_SETTING)

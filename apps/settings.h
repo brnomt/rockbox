@@ -745,6 +745,18 @@ struct user_settings
 #endif
 #ifdef HAVE_BACKLIGHT_BRIGHTNESS
     int brightness;
+#if defined(CONFIG_RTC) && (CONFIG_RTC != 0)
+    /* time-based automatic brightness: two slots (Day / Night). The slot
+     * whose trigger time is the most recent in the past sets the level.
+     * Implementation: apps/timed_brightness.c */
+    bool timed_brightness_enabled;
+    int  timed_brightness_day_hour;    /* 0..23 */
+    int  timed_brightness_day_min;     /* 0..59 */
+    int  timed_brightness_day_level;   /* MIN_BRIGHTNESS_SETTING..MAX_BRIGHTNESS_SETTING */
+    int  timed_brightness_night_hour;  /* 0..23 */
+    int  timed_brightness_night_min;   /* 0..59 */
+    int  timed_brightness_night_level; /* MIN_BRIGHTNESS_SETTING..MAX_BRIGHTNESS_SETTING */
+#endif
 #endif
 
 #ifdef HAVE_REMOTE_LCD

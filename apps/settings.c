@@ -37,6 +37,7 @@
 #include "debug.h"
 #include "usb.h"
 #include "backlight.h"
+#include "timed_brightness.h"
 #include "audio.h"
 #include "talk.h"
 #include "string-extra.h"
@@ -916,6 +917,12 @@ void settings_apply(bool read_disk)
 #endif /* HAVE_REMOTE_LCD */
 #ifdef HAVE_BACKLIGHT_BRIGHTNESS
     backlight_set_brightness(global_settings.brightness);
+#if defined(CONFIG_RTC) && (CONFIG_RTC != 0)
+    /* If the time-based brightness feature is enabled this overrides the
+     * call above with the currently-active slot's level and arms the next
+     * scheduled transition. */
+    timed_brightness_apply();
+#endif
 #endif
 #ifdef HAVE_BACKLIGHT
     backlight_set_timeout(global_settings.backlight_timeout);
