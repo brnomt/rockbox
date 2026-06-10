@@ -31,6 +31,7 @@
 #if defined(HAVE_BACKLIGHT_BRIGHTNESS) && defined(CONFIG_RTC) && (CONFIG_RTC != 0)
 
 #include <stdbool.h>
+#include <stddef.h>
 
 /* Re-evaluate the current rule and (re)arm the next timeout. Idempotent:
  * safe to call whenever any related setting changes, or after settings
@@ -42,6 +43,16 @@ void timed_brightness_apply(void);
  * immediately. */
 void timed_brightness_cb_bool(bool v);
 void timed_brightness_cb_int(int v);
+
+/* Menu: hour/minute time picker (reuses set_time_screen). */
+int timed_brightness_set_day_time(void);
+int timed_brightness_set_night_time(void);
+char *timed_brightness_day_time_getname(int selected_item, void *data,
+                                        char *buffer, size_t buffer_len);
+char *timed_brightness_night_time_getname(int selected_item, void *data,
+                                          char *buffer, size_t buffer_len);
+int timed_brightness_day_time_speak(int selected_item, void *data);
+int timed_brightness_night_time_speak(int selected_item, void *data);
 
 #endif /* HAVE_BACKLIGHT_BRIGHTNESS && CONFIG_RTC */
 #endif /* _TIMED_BRIGHTNESS_H */

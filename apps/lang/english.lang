@@ -2791,37 +2791,20 @@
   </voice>
 </phrase>
 <phrase>
-  id: LANG_TIMED_BRIGHTNESS_DAY_HOUR
-  desc: in timed brightness submenu
+  id: LANG_TIMED_BRIGHTNESS_DAY_TIME
+  desc: in timed brightness submenu, opens time picker
   user: core
   <source>
     *: none
-    backlight_brightness: "Day Hour"
+    backlight_brightness: "Day Time"
   </source>
   <dest>
     *: none
-    backlight_brightness: "Day Hour"
+    backlight_brightness: "Day Time"
   </dest>
   <voice>
     *: none
-    backlight_brightness: "Day Hour"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_TIMED_BRIGHTNESS_DAY_MIN
-  desc: in timed brightness submenu
-  user: core
-  <source>
-    *: none
-    backlight_brightness: "Day Minute"
-  </source>
-  <dest>
-    *: none
-    backlight_brightness: "Day Minute"
-  </dest>
-  <voice>
-    *: none
-    backlight_brightness: "Day Minute"
+    backlight_brightness: "Day Time"
   </voice>
 </phrase>
 <phrase>
@@ -2842,37 +2825,20 @@
   </voice>
 </phrase>
 <phrase>
-  id: LANG_TIMED_BRIGHTNESS_NIGHT_HOUR
-  desc: in timed brightness submenu
+  id: LANG_TIMED_BRIGHTNESS_NIGHT_TIME
+  desc: in timed brightness submenu, opens time picker
   user: core
   <source>
     *: none
-    backlight_brightness: "Night Hour"
+    backlight_brightness: "Night Time"
   </source>
   <dest>
     *: none
-    backlight_brightness: "Night Hour"
+    backlight_brightness: "Night Time"
   </dest>
   <voice>
     *: none
-    backlight_brightness: "Night Hour"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_TIMED_BRIGHTNESS_NIGHT_MIN
-  desc: in timed brightness submenu
-  user: core
-  <source>
-    *: none
-    backlight_brightness: "Night Minute"
-  </source>
-  <dest>
-    *: none
-    backlight_brightness: "Night Minute"
-  </dest>
-  <voice>
-    *: none
-    backlight_brightness: "Night Minute"
+    backlight_brightness: "Night Time"
   </voice>
 </phrase>
 <phrase>

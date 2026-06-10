@@ -27,6 +27,7 @@
 #include "action.h"
 #include "settings.h"
 #include "menu.h"
+#include "timed_brightness.h"
 #include "tree.h"
 #include "list.h"
 #include "peakmeter.h"
@@ -182,26 +183,26 @@ MENUITEM_SETTING(brightness_item, &global_settings.brightness, NULL);
 #if defined(CONFIG_RTC) && (CONFIG_RTC != 0)
 MENUITEM_SETTING(timed_brightness_enabled_item,
                  &global_settings.timed_brightness_enabled, NULL);
-MENUITEM_SETTING(timed_brightness_day_hour_item,
-                 &global_settings.timed_brightness_day_hour, NULL);
-MENUITEM_SETTING(timed_brightness_day_min_item,
-                 &global_settings.timed_brightness_day_min, NULL);
+MENUITEM_FUNCTION_DYNTEXT(timed_brightness_day_time_item, 0,
+                          timed_brightness_set_day_time,
+                          timed_brightness_day_time_getname,
+                          timed_brightness_day_time_speak,
+                          NULL, NULL, Icon_NOICON);
+MENUITEM_FUNCTION_DYNTEXT(timed_brightness_night_time_item, 0,
+                          timed_brightness_set_night_time,
+                          timed_brightness_night_time_getname,
+                          timed_brightness_night_time_speak,
+                          NULL, NULL, Icon_NOICON);
 MENUITEM_SETTING(timed_brightness_day_level_item,
                  &global_settings.timed_brightness_day_level, NULL);
-MENUITEM_SETTING(timed_brightness_night_hour_item,
-                 &global_settings.timed_brightness_night_hour, NULL);
-MENUITEM_SETTING(timed_brightness_night_min_item,
-                 &global_settings.timed_brightness_night_min, NULL);
 MENUITEM_SETTING(timed_brightness_night_level_item,
                  &global_settings.timed_brightness_night_level, NULL);
 MAKE_MENU(timed_brightness_menu, ID2P(LANG_TIMED_BRIGHTNESS),
           NULL, Icon_Menu_setting,
           &timed_brightness_enabled_item,
-          &timed_brightness_day_hour_item,
-          &timed_brightness_day_min_item,
+          &timed_brightness_day_time_item,
+          &timed_brightness_night_time_item,
           &timed_brightness_day_level_item,
-          &timed_brightness_night_hour_item,
-          &timed_brightness_night_min_item,
           &timed_brightness_night_level_item);
 #endif /* CONFIG_RTC */
 #endif

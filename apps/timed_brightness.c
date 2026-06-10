@@ -24,12 +24,17 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <string.h>
 #include "timed_brightness.h"
 #include "settings.h"
 #include "backlight.h"
 #include "kernel.h"
 #include "timeout.h"
 #include "timefuncs.h"
+#include "screens.h"
+#include "lang.h"
+#include "talk.h"
 
 #define MIN_PER_DAY  (24 * 60)
 #define SLOT_DAY     0
@@ -160,6 +165,114 @@ void timed_brightness_cb_int(int v)
 {
     (void)v;
     timed_brightness_apply();
+}
+
+static int timed_brightness_set_slot_time(bool night)
+{
+    struct tm atm;
+    memset(&atm, 0, sizeof(atm));
+
+    if (night)
+    {
+        atm.tm_hour = global_settings.timed_brightness_night_hour;
+        atm.tm_min  = global_settings.timed_brightness_night_min;
+    }
+    else
+    {
+        atm.tm_hour = global_settings.timed_brightness_day_hour;
+        atm.tm_min  = global_settings.timed_brightness_day_min;
+    }
+    atm.tm_sec = 0;
+
+    int lang_id = night ? LANG_TIMED_BRIGHTNESS_NIGHT_TIME
+                        : LANG_TIMED_BRIGHTNESS_DAY_TIME;
+    bool usb = set_time_screen(str(lang_id), &atm, false);
+
+    if (!usb && atm.tm_year != -1)
+    {
+        if (night)
+        {
+            global_settings.timed_brightness_night_hour = atm.tm_hour;
+            global_settings.timed_brightness_night_min  = atm.tm_min;
+        }
+        else
+        {
+            global_settings.timed_brightness_day_hour = atm.tm_hour;
+            global_settings.timed_brightness_day_min  = atm.tm_min;
+        }
+        timed_brightness_apply();
+        settings_save();
+    }
+
+    return usb ? 1 : 0;
+}
+
+int timed_brightness_set_day_time(void)
+{
+    return timed_brightness_set_slot_time(false);
+}
+
+int timed_brightness_set_night_time(void)
+{
+    return timed_brightness_set_slot_time(true);
+}
+
+static char *format_slot_time(bool night, char *buffer, size_t buffer_len)
+{
+    int lang_id = night ? LANG_TIMED_BRIGHTNESS_NIGHT_TIME
+                        : LANG_TIMED_BRIGHTNESS_DAY_TIME;
+    int hour = night ? global_settings.timed_brightness_night_hour
+                     : global_settings.timed_brightness_day_hour;
+    int min  = night ? global_settings.timed_brightness_night_min
+                     : global_settings.timed_brightness_day_min;
+
+    snprintf(buffer, buffer_len, "%s (%02d:%02d)", str(lang_id), hour, min);
+    return buffer;
+}
+
+char *timed_brightness_day_time_getname(int selected_item, void *data,
+                                        char *buffer, size_t buffer_len)
+{
+    (void)selected_item;
+    (void)data;
+    return format_slot_time(false, buffer, buffer_len);
+}
+
+char *timed_brightness_night_time_getname(int selected_item, void *data,
+                                          char *buffer, size_t buffer_len)
+{
+    (void)selected_item;
+    (void)data;
+    return format_slot_time(true, buffer, buffer_len);
+}
+
+static int speak_slot_time(bool night)
+{
+    int hour = night ? global_settings.timed_brightness_night_hour
+                     : global_settings.timed_brightness_day_hour;
+    int min  = night ? global_settings.timed_brightness_night_min
+                     : global_settings.timed_brightness_day_min;
+    int lang_id = night ? LANG_TIMED_BRIGHTNESS_NIGHT_TIME
+                        : LANG_TIMED_BRIGHTNESS_DAY_TIME;
+
+    talk_id(lang_id, true);
+    talk_value(hour, UNIT_HOUR, true);
+    talk_value(min, UNIT_MIN, true);
+    return 0;
+}
+
+int timed_brightness_day_time_speak(int selected_item, void *data)
+{
+    (void)selected_item;
+    (void)data;
+    return speak_slot_time(false);
+}
+
+int timed_brightness_night_time_speak(int selected_item, void *data)
+{
+    (void)selected_item;
+    (void)data;
+    return speak_slot_time(true);
 }
 
 #endif /* HAVE_BACKLIGHT_BRIGHTNESS && CONFIG_RTC */
