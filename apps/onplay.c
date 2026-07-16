@@ -982,6 +982,29 @@ static bool onplay_load_plugin(void *param)
     return false;
 }
 
+static char *onplay_get_plugin_name(bool reload)
+{
+    static char ctx_plugin_namebuf[OPEN_PLUGIN_NAMESZ] = "";
+    if (reload || ctx_plugin_namebuf[0] == '\0')
+    {
+        int res = open_plugin_load_entry(ID2P(LANG_ONPLAY_MENU_TITLE));
+        if (res >= 0 || res ==  OPEN_PLUGIN_NEEDS_FLUSHED)
+        {
+            struct open_plugin_entry_t *op = open_plugin_get_entry();
+            strmemccpy(ctx_plugin_namebuf, op->name, sizeof(ctx_plugin_namebuf));
+        }
+        else
+        {
+            strmemccpy(ctx_plugin_namebuf, str(LANG_OPEN_PLUGIN),
+                       sizeof(ctx_plugin_namebuf));
+        }
+    }
+
+    if (get_current_activity() == ACTIVITY_SETTINGS)
+        return str(LANG_OPEN_PLUGIN);
+    return ctx_plugin_namebuf;
+}
+
 static int go_to_album(void)
 {
     struct mp3entry *id3 = audio_current_track();
