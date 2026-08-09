@@ -87,6 +87,10 @@ apps/settings.c                     — dsp_set_bassboost() / dsp_set_crystalize
 apps/settings.h                     — bassboost_settings + crystalizer_settings
 apps/settings_list.c                — All setting entries + callbacks
 apps/onplay.c                       — Go to Album item in WPS context menu
+apps/tagtree.c/.h                   — tagtree_goto_album() (Database jump for Go to Album)
+apps/root_menu.c, tree.c, gui/wps.c — Go to Album navigation wiring
+apps/timed_brightness.c/.h          — Time-based auto brightness controller
+apps/menus/display_menu.c           — Timed Brightness submenu
 lib/rbcodec/SOURCES                 — bassboost.c + crystalizer.c
 lib/rbcodec/dsp/dsp_proc_database.h — BASSBOOST + CRYSTALIZER registered
 lib/rbcodec/dsp/dsp_proc_settings.h — Includes both headers
@@ -116,15 +120,29 @@ All DSP math is **fixed-point integer** (S7.24 / S15.16 / Q31) targeting ARM926E
 - **Psychoacoustic Harmonics**: Full-wave rectification `abs(x)` followed by a 1-pole DC blocker to generate even-order upper harmonics.
 - **Crystalizer 2-band**: LR2 series — LP@60 → LP@3000 = band 0, remainder = band 1
 
-## WPS Context Menu — Go to Album
+## QoL features
+
+### Go to Album (WPS context menu)
 
 New item in the WPS context menu (Select button on iPod while playing):
 
-- **Go to Album** — navigates directly to the current track's folder in the file browser
-- Uses `audio_current_track()->path` to locate the file
-- Skips the ID3 info screen, jumps straight to directory browsing
+- **Go to Album** — jumps straight to the current track's album in the Database browser
+- Uses tagcache: locates the `"same"` menu (`%menu_start "same"` in `tagnavi.config`), finds its `Album` entry and opens it with the playing track's album preselected
+- Falls back to the track's folder in the file browser when the Database isn't available (tagcache not ready or track has no album tag)
 
-Implementation: `apps/onplay.c` — `go_to_album()` function + `go_to_album_item` MENUITEM_FUNCTION
+Implementation: `apps/onplay.c` — `go_to_album()` + `go_to_album_item`; `apps/tagtree.c` — `tagtree_goto_album()`; wired through `apps/root_menu.c`, `apps/tree.c` and `apps/gui/wps.c`.
+
+### Time-based Auto Brightness
+
+Scheduled day/night backlight levels under **Settings → Display Settings → Timed Brightness** (targets with adjustable backlight brightness and an RTC, e.g. iPod 6G):
+
+- **Enable** (default off) — turning it off restores the manual brightness setting
+- **Day Time** (default 07:00) / **Night Time** (default 23:00) — set via the shared time picker screen, same UI as the alarm
+- **Day Brightness** (default max, 63 on iPod 6G) / **Night Brightness** (default min, 1)
+
+The controller applies whichever slot is currently active (the one whose trigger time most recently passed) and arms a single self-rearming timeout for the next transition — no per-minute polling, and the callback is ISR-safe. If the RTC has no valid time yet it falls back to manual brightness and retries when settings are applied.
+
+Implementation: `apps/timed_brightness.c/.h`, menu items in `apps/menus/display_menu.c`, settings in `apps/settings_list.c`.
 
 ## Inline Earphone Remote (iPod 6G)
 
