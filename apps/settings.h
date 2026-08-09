@@ -843,6 +843,9 @@ struct user_settings
     struct compressor_settings compressor_settings;
     struct bassboost_settings bassboost_settings;
     struct crystalizer_settings crystalizer_settings;
+    struct exciter_settings exciter_settings;
+    struct widener_settings widener_settings;
+    struct reverb_settings reverb_settings;
 
     int sleeptimer_duration; /* In minutes; 0=off */
     bool sleeptimer_on_startup;

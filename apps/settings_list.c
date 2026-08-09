@@ -679,6 +679,42 @@ static void crystalizer_set_bool(bool val)
     dsp_set_crystalizer(&global_settings.crystalizer_settings);
 }
 
+static void exciter_set(int val)
+{
+    (void)val;
+    dsp_set_exciter(&global_settings.exciter_settings);
+}
+
+static void exciter_set_bool(bool val)
+{
+    (void)val;
+    dsp_set_exciter(&global_settings.exciter_settings);
+}
+
+static void widener_set(int val)
+{
+    (void)val;
+    dsp_set_widener(&global_settings.widener_settings);
+}
+
+static void widener_set_bool(bool val)
+{
+    (void)val;
+    dsp_set_widener(&global_settings.widener_settings);
+}
+
+static void reverb_set(int val)
+{
+    (void)val;
+    dsp_set_reverb(&global_settings.reverb_settings);
+}
+
+static void reverb_set_bool(bool val)
+{
+    (void)val;
+    dsp_set_reverb(&global_settings.reverb_settings);
+}
+
 static const char* db_format(char* buffer, size_t buffer_size, int value,
                       const char* unit)
 {
@@ -2066,6 +2102,49 @@ INT_SETTING_NOWRAP(F_SOUNDSETTING, bassboost_settings.sub_bass_gain,
                        LANG_CRYSTALIZER_OUTPUT, 0,
                        "crystalizer output gain", UNIT_DB, -120, 120,
                        1, NULL, NULL, crystalizer_set),
+
+    /* air exciter */
+    OFFON_SETTING(F_SOUNDSETTING, exciter_settings.enabled,
+                  LANG_EXCITER_ENABLE, false,
+                  "exciter enable", exciter_set_bool),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, exciter_settings.cutoff_hz,
+                       LANG_EXCITER_CUTOFF, 3500,
+                       "exciter cutoff", UNIT_INT, 2000, 8000,
+                       100, NULL, NULL, exciter_set),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, exciter_settings.intensity,
+                       LANG_EXCITER_INTENSITY, 30,
+                       "exciter intensity", UNIT_PERCENT, 0, 100,
+                       5, NULL, NULL, exciter_set),
+
+    /* stereo widener */
+    OFFON_SETTING(F_SOUNDSETTING, widener_settings.enabled,
+                  LANG_WIDENER_ENABLE, false,
+                  "widener enable", widener_set_bool),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, widener_settings.width,
+                       LANG_WIDENER_WIDTH, 100,
+                       "widener width", UNIT_PERCENT, 0, 200,
+                       5, NULL, NULL, widener_set),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, widener_settings.crossover_hz,
+                       LANG_WIDENER_CROSSOVER, 150,
+                       "widener crossover", UNIT_INT, 50, 500,
+                       10, NULL, NULL, widener_set),
+
+    /* reverb */
+    OFFON_SETTING(F_SOUNDSETTING, reverb_settings.enabled,
+                  LANG_REVERB_ENABLE, false,
+                  "reverb enable", reverb_set_bool),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, reverb_settings.room_size,
+                       LANG_REVERB_ROOM, 50,
+                       "reverb room size", UNIT_PERCENT, 0, 100,
+                       5, NULL, NULL, reverb_set),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, reverb_settings.damping,
+                       LANG_REVERB_DAMPING, 50,
+                       "reverb damping", UNIT_PERCENT, 0, 100,
+                       5, NULL, NULL, reverb_set),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, reverb_settings.wet_mix,
+                       LANG_REVERB_MIX, 30,
+                       "reverb wet mix", UNIT_PERCENT, 0, 100,
+                       5, NULL, NULL, reverb_set),
 
     /* compressor */
     INT_SETTING_NOWRAP(F_SOUNDSETTING, compressor_settings.threshold,

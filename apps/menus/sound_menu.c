@@ -271,6 +271,55 @@ static int timestretch_callback(int action,
               &crystalizer_mix,
               &crystalizer_output_gain);
 
+    /* air exciter menu */
+    MENUITEM_SETTING(exciter_enabled,
+                     &global_settings.exciter_settings.enabled,
+                     lowlatency_callback);
+    MENUITEM_SETTING(exciter_cutoff,
+                     &global_settings.exciter_settings.cutoff_hz,
+                     lowlatency_callback);
+    MENUITEM_SETTING(exciter_intensity,
+                     &global_settings.exciter_settings.intensity,
+                     lowlatency_callback);
+    MAKE_MENU(exciter_menu, ID2P(LANG_EXCITER), NULL, Icon_NOICON,
+              &exciter_enabled,
+              &exciter_cutoff,
+              &exciter_intensity);
+
+    /* stereo widener menu */
+    MENUITEM_SETTING(widener_enabled,
+                     &global_settings.widener_settings.enabled,
+                     lowlatency_callback);
+    MENUITEM_SETTING(widener_width,
+                     &global_settings.widener_settings.width,
+                     lowlatency_callback);
+    MENUITEM_SETTING(widener_crossover,
+                     &global_settings.widener_settings.crossover_hz,
+                     lowlatency_callback);
+    MAKE_MENU(widener_menu, ID2P(LANG_WIDENER), NULL, Icon_NOICON,
+              &widener_enabled,
+              &widener_width,
+              &widener_crossover);
+
+    /* reverb menu */
+    MENUITEM_SETTING(reverb_enabled,
+                     &global_settings.reverb_settings.enabled,
+                     lowlatency_callback);
+    MENUITEM_SETTING(reverb_room,
+                     &global_settings.reverb_settings.room_size,
+                     lowlatency_callback);
+    MENUITEM_SETTING(reverb_damping,
+                     &global_settings.reverb_settings.damping,
+                     lowlatency_callback);
+    MENUITEM_SETTING(reverb_mix,
+                     &global_settings.reverb_settings.wet_mix,
+                     lowlatency_callback);
+    MAKE_MENU(reverb_menu, ID2P(LANG_REVERB), NULL, Icon_NOICON,
+              &reverb_enabled,
+              &reverb_room,
+              &reverb_damping,
+              &reverb_mix);
+
 #ifdef HAVE_SPEAKER
     MENUITEM_SETTING(speaker_mode, &global_settings.speaker_mode, NULL);
 #endif
@@ -317,6 +366,9 @@ MAKE_MENU(sound_settings, ID2P(LANG_SOUND_SETTINGS), NULL, Icon_Audio,
           ,&compressor_menu
           ,&bassboost_menu
           ,&crystalizer_menu
+          ,&exciter_menu
+          ,&widener_menu
+          ,&reverb_menu
 #ifdef HAVE_SPEAKER
          ,&speaker_mode
 #endif

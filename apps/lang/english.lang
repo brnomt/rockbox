@@ -17842,3 +17842,185 @@
     *: "Filter Type"
   </voice>
 </phrase>
+<phrase>
+  id: LANG_EXCITER
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Air Exciter"
+  </source>
+  <dest>
+    *: "Air Exciter"
+  </dest>
+  <voice>
+    *: "Air Exciter"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_EXCITER_ENABLE
+  desc: air exciter menu
+  user: core
+  <source>
+    *: "Enable"
+  </source>
+  <dest>
+    *: "Enable"
+  </dest>
+  <voice>
+    *: "Enable"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_EXCITER_CUTOFF
+  desc: air exciter menu - high-pass cutoff frequency
+  user: core
+  <source>
+    *: "Cutoff"
+  </source>
+  <dest>
+    *: "Cutoff"
+  </dest>
+  <voice>
+    *: "Cutoff"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_EXCITER_INTENSITY
+  desc: air exciter menu - harmonics mix amount
+  user: core
+  <source>
+    *: "Intensity"
+  </source>
+  <dest>
+    *: "Intensity"
+  </dest>
+  <voice>
+    *: "Intensity"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_WIDENER
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Stereo Widener"
+  </source>
+  <dest>
+    *: "Stereo Widener"
+  </dest>
+  <voice>
+    *: "Stereo Widener"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_WIDENER_ENABLE
+  desc: stereo widener menu
+  user: core
+  <source>
+    *: "Enable"
+  </source>
+  <dest>
+    *: "Enable"
+  </dest>
+  <voice>
+    *: "Enable"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_WIDENER_WIDTH
+  desc: stereo widener menu - side signal width
+  user: core
+  <source>
+    *: "Width"
+  </source>
+  <dest>
+    *: "Width"
+  </dest>
+  <voice>
+    *: "Width"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_WIDENER_CROSSOVER
+  desc: stereo widener menu - mono bass crossover
+  user: core
+  <source>
+    *: "Crossover"
+  </source>
+  <dest>
+    *: "Crossover"
+  </dest>
+  <voice>
+    *: "Crossover"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_REVERB
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Reverb"
+  </source>
+  <dest>
+    *: "Reverb"
+  </dest>
+  <voice>
+    *: "Reverb"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_REVERB_ENABLE
+  desc: reverb menu
+  user: core
+  <source>
+    *: "Enable"
+  </source>
+  <dest>
+    *: "Enable"
+  </dest>
+  <voice>
+    *: "Enable"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_REVERB_ROOM
+  desc: reverb menu - room size
+  user: core
+  <source>
+    *: "Room Size"
+  </source>
+  <dest>
+    *: "Room Size"
+  </dest>
+  <voice>
+    *: "Room Size"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_REVERB_DAMPING
+  desc: reverb menu - high frequency damping
+  user: core
+  <source>
+    *: "Damping"
+  </source>
+  <dest>
+    *: "Damping"
+  </dest>
+  <voice>
+    *: "Damping"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_REVERB_MIX
+  desc: reverb menu - wet/dry mix
+  user: core
+  <source>
+    *: "Wet Mix"
+  </source>
+  <dest>
+    *: "Wet Mix"
+  </dest>
+  <voice>
+    *: "Wet Mix"
+  </voice>
+</phrase>

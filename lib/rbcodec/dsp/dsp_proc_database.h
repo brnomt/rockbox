@@ -52,6 +52,9 @@ DSP_PROC_DB_START
     DSP_PROC_DB_ITEM(COMPRESSOR)    /* dynamic-range compressor */
     DSP_PROC_DB_ITEM(BASSBOOST)     /* bass booster */
     DSP_PROC_DB_ITEM(CRYSTALIZER)   /* multiband transient enhancer */
+    DSP_PROC_DB_ITEM(EXCITER)       /* air exciter (treble harmonics) */
+    DSP_PROC_DB_ITEM(WIDENER)       /* m/s stereo widener */
+    DSP_PROC_DB_ITEM(REVERB)        /* mini reverb */
 DSP_PROC_DB_STOP
 
 /* This file is included multiple times with different macro definitions so

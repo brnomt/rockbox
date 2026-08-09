@@ -2,11 +2,17 @@
  *             __________               __   ___.
  *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
  *   Source     |       _//  _ \_/ ___\|  |/ /| __ \ /  _ \  \/  /
- *   Jukebox    |    |   (  <_> )  \___|    < | \_\ (  <_> > <  <
- *   Firmware   |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
+ *   Jukebox    |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
  *                     \/            \/     \/    \/            \/
  *
- * Copyright (C) 2012 Michael Sevakis
+ * Mini reverb - compact Schroeder/freeverb style room simulator
+ *
+ * Signal flow:
+ *   (L+R)/2 -> 2x4 parallel comb filters with damped feedback
+ *            -> one set per stereo channel (detuned delay lengths)
+ *            -> wet/dry mix -> Soft limiter
+ *
+ * Copyright (C) 2026
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,29 +23,20 @@
  * KIND, either express or implied.
  *
  ****************************************************************************/
-#ifndef DSP_PROC_SETTINGS_H
-#define DSP_PROC_SETTINGS_H
+#ifndef REVERB_H
+#define REVERB_H
 
-/* Collect all headers together */
-#include "channel_mode.h"
-#include "compressor.h"
-#include "crossfeed.h"
-#include "dsp_misc.h"
-#include "eq.h"
-#include "pga.h"
-#include "surround.h"
-#include "afr.h"
-#include "bassboost.h"
-#include "crystalizer.h"
-#include "exciter.h"
-#include "widener.h"
-#include "reverb.h"
-#include "pbe.h"
-#ifdef HAVE_PITCHCONTROL
-#include "tdspeed.h"
-#endif
-#ifdef HAVE_SW_TONE_CONTROLS
-#include "tone_controls.h"
-#endif
+#include <stdbool.h>
 
-#endif /* DSP_PROC_SETTINGS_H */
+struct reverb_settings
+{
+    bool enabled;
+
+    int room_size;           /* 0-100, delay lengths + feedback (default 50) */
+    int damping;             /* 0-100, treble loss in the tail (default 50) */
+    int wet_mix;             /* 0-100% wet/dry mix (default 30) */
+};
+
+void dsp_set_reverb(const struct reverb_settings *settings);
+
+#endif
