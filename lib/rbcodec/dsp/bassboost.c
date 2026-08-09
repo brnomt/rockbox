@@ -184,11 +184,20 @@ static void bassboost_process(struct dsp_proc_entry *this,
     int32_t *out1  = buf->p32[1];
     const int num_chan = MIN(buf->format.num_channels, MAX_CH);
 
+    /* Full scale is 2^frac_bits (2^27 for 16-bit sources, 2^31 for 32-bit).
+     * The limiter must track it: a fixed 2^31 threshold sits far above the
+     * real full scale of 16-bit audio and never engages, so boosted peaks
+     * hard-clip at the output conversion instead of being soft-limited. */
+    const int frac_bits = buf->format.frac_bits;
+    const int64_t max_val  = ((int64_t)1 << frac_bits) - 1;
+    const int64_t thresh   = (max_val * 7) >> 3;   /* 7/8 FS, ~ -1.9 dBFS */
+    const int64_t headroom = max_val - thresh;
+
     for (int n = 0; n < count; n++)
     {
         int32_t L = out0[n];
         int32_t R = (num_chan > 1) ? out1[n] : L;
-        int32_t outL, outR;
+        int32_t outL = 0, outR = 0;
 
         for (int ch = 0; ch < num_chan; ch++)
         {
@@ -213,8 +222,10 @@ static void bassboost_process(struct dsp_proc_entry *this,
                 int64_t hp_out = even_gen - last_even_harm[ch] +
                                  ((dc_state[ch] * dc_coeff) >> 24);
 
-                /* Clamp DC state to prevent int64 overflow on heavy bass */
-                int64_t max_state = (int64_t)1 << 48;  /* ~2^48 safe limit */
+                /* Clamp DC state relative to full scale. Normal operation keeps
+                 * hp_out near FS; this only guards against integrator windup,
+                 * and a tighter bound keeps the later gain math overflow-safe. */
+                int64_t max_state = max_val << 4;
                 if (hp_out > max_state) hp_out = max_state;
                 else if (hp_out < -max_state) hp_out = -max_state;
 
@@ -232,10 +243,9 @@ static void bassboost_process(struct dsp_proc_entry *this,
             int64_t g_result = (raw_result >> 8) * output_gain;
             g_result >>= 16; /* 8 + 16 = 24 bits for Q24 */
 
-            /* Master soft clipper: linear up to 7/8 FS (~-1.9 dBFS), then soft knee */
-            int64_t max_val = ((1LL << 31) - 1);
-            int64_t thresh  = (max_val * 7) / 8;
-            int64_t abs_g   = (g_result < 0) ? -g_result : g_result;
+            /* Master soft clipper: linear up to 7/8 FS, soft knee above. The
+             * knee is asymptotic toward max_val, so output never hard-clips. */
+            int64_t abs_g = (g_result < 0) ? -g_result : g_result;
             int32_t result;
 
             if (abs_g <= thresh)
@@ -245,8 +255,6 @@ static void bassboost_process(struct dsp_proc_entry *this,
             else
             {
                 int64_t over = abs_g - thresh;
-                int64_t headroom = max_val - thresh;
-                /* Mathematically identical to (over * headroom) / (headroom + over) */
                 int64_t soft_over = headroom - (headroom * headroom) / (headroom + over);
                 int64_t y = thresh + soft_over;
                 if (y > max_val) y = max_val;

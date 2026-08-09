@@ -144,8 +144,15 @@ static void crystalizer_process(struct dsp_proc_entry *this,
     int32_t *out_l = buf->p32[0];
     int32_t *out_r = buf->p32[1];
     const int num_ch = buf->format.num_channels;
+
+    /* Full scale = 2^frac_bits. The crystalizer is the last effect in the
+     * chain and adds gain (transient intensity + output gain), so it must
+     * soft-limit its output or boosted peaks hard-clip at the output
+     * conversion. Accumulation below stays in int64 to avoid int32 wrap. */
     const int frac_bits = buf->format.frac_bits;
-    (void)frac_bits;
+    const int64_t max_val  = ((int64_t)1 << frac_bits) - 1;
+    const int64_t thresh   = (max_val * 7) >> 3;
+    const int64_t headroom = max_val - thresh;
 
     for (int s = 0; s < count; s++)
     {
@@ -172,7 +179,7 @@ static void crystalizer_process(struct dsp_proc_entry *this,
             bands[0] = lp_low + lp_mid;
             bands[1] = hp_mid;
 
-            int32_t sum = 0;
+            int64_t sum = 0;
 
             for (int b = 0; b < NUM_BANDS; b++)
             {
@@ -182,31 +189,39 @@ static void crystalizer_process(struct dsp_proc_entry *this,
                 band_x2[b][ch] = band_x1[b][ch];
                 band_x1[b][ch] = bands[b];
 
+                sum += bands[b];
                 if (intensity_linear[b] != 0 && d2 != 0)
-                {
-                    int32_t enh = FRACMUL_SHL(intensity_linear[b], d2, 7);
-                    sum += bands[b] + enh;
-                }
-                else
-                {
-                    sum += bands[b];
-                }
+                    sum += ((int64_t)intensity_linear[b] * d2) >> 24;
             }
 
-            int32_t merged = FRACMUL_SHL(x, dry_mix, 7)
-                           + FRACMUL_SHL(sum, wet_mix, 7);
+            int64_t merged = (((int64_t)x * dry_mix) >> 24)
+                           + ((sum * wet_mix) >> 24);
 
-            if (ch == 0) outL = merged;
-            else         outR = merged;
+            if (output_gain != UNITY)
+                merged = (merged * output_gain) >> 24;
+
+            /* Soft-limiter: linear up to 7/8 FS, asymptotic knee above. */
+            int64_t abs_m = (merged < 0) ? -merged : merged;
+            int32_t result;
+
+            if (abs_m <= thresh)
+            {
+                result = (int32_t)merged;
+            }
+            else
+            {
+                int64_t over = abs_m - thresh;
+                int64_t soft_over = headroom - (headroom * headroom) / (headroom + over);
+                int64_t y = thresh + soft_over;
+                if (y > max_val) y = max_val;
+                result = (int32_t)((merged < 0) ? -y : y);
+            }
+
+            if (ch == 0) outL = result;
+            else         outR = result;
         }
 
         if (num_ch == 1) outR = outL;
-
-        if (output_gain != UNITY)
-        {
-            outL = FRACMUL_SHL(outL, output_gain, 7);
-            outR = FRACMUL_SHL(outR, output_gain, 7);
-        }
 
         out_l[s] = outL;
         if (num_ch > 1)
