@@ -1,6 +1,6 @@
 # Rockbox Bassboost + Crystalizer
 
-Bass booster (fixed sub-bass gain + saturation) and Crystalizer (2-band transient enhancer) DSP stages for Rockbox — targeting iPod Classic 6G/7G.
+Bass booster (fixed sub-bass gain + saturation), Crystalizer (2-band transient enhancer), Air Exciter, Stereo Widener and Mini Reverb DSP stages for Rockbox — targeting iPod Classic 6G/7G.
 
 ## Bassboost
 
@@ -49,9 +49,50 @@ Input → [LPF@60] → [LPF@3000] → Band Mid (60-3000) → enhancer → ┐
                  → [HPF@3000] → Band High (3000+)  → enhancer → ├→ Mix → Out
 ```
 
+## Air Exciter
+
+Bandlimited even-harmonic generator for the treble — adds "air" and perceived detail without harshness. This is the corrected take on a classic exciter: only the isolated treble band is driven non-linear, so the generated harmonics stay in the treble instead of intermodulating the whole spectrum (the failure mode of a full-band soft-clip exciter).
+
+- **Cutoff** (2000–8000 Hz): LR4 high-pass (-24 dB/octave) isolating the band to be excited.
+- **Intensity** (0–100%): amount of generated harmonics mixed back in.
+
+Uses the same MaxxBass-style building blocks as the bassboost Harmonics knob (full-wave rectify + 1-pole DC block), applied to the high-passed signal.
+
+### Signal flow
+
+```
+Input → LR4 HPF@cutoff → [Rectify + DC Block] → [× Intensity] → ┐
+                                                                 ├→ [Soft Clipper] → Output
+Input -----------------------------------------------------------┘
+```
+
+## Stereo Widener
+
+Mid/side width control with a tamed low end.
+
+- **Width** (0–200%): scales the side signal. 100% is transparent; 0% is mono; >100% widens.
+- **Crossover** (50–500 Hz): side content below this frequency never exceeds unity width, so the bass stays mono-compatible no matter how wide you go.
+
+### Signal flow
+
+```
+L,R → M/S decode → side → [LPF@crossover] → low side (≤100% width) ┐
+                                          → high side (× width) ────┤→ M/S encode → [Soft Clipper] → Output
+```
+
+## Mini Reverb
+
+Compact freeverb-style room simulator: two banks of four damped comb filters with detuned delay lengths (one bank per stereo channel) fed from a mono mix.
+
+- **Room Size** (0–100%): feedback amount — short slap to long hall-like decay.
+- **Damping** (0–100%): one-pole low-pass in each feedback loop — how quickly the tail loses treble.
+- **Wet Mix** (0–100%): wet/dry blend.
+
+Delay buffers are allocated from the core pool only while the effect is enabled (same pattern as surround), so no RAM is used when it's off.
+
 ## Usage
 
-On device: **Settings → Sound Settings → Bassboost / Crystalizer**
+On device: **Settings → Sound Settings → Bassboost / Crystalizer / Air Exciter / Stereo Widener / Reverb**
 
 ### Bassboost menu
 - **Enable**
@@ -67,6 +108,22 @@ On device: **Settings → Sound Settings → Bassboost / Crystalizer**
 - **Mix** (0–100%, step 1)
 - **Output Gain** (±12 dB, step 0.1)
 
+### Air Exciter menu
+- **Enable**
+- **Cutoff** (2000–8000 Hz, step 100)
+- **Intensity** (0–100%, step 5)
+
+### Stereo Widener menu
+- **Enable**
+- **Width** (0–200%, step 5)
+- **Crossover** (50–500 Hz, step 10)
+
+### Reverb menu
+- **Enable**
+- **Room Size** (0–100%, step 5)
+- **Damping** (0–100%, step 5)
+- **Wet Mix** (0–100%, step 5)
+
 ### Recommended settings for sub-bass on small drivers
 
 ```
@@ -76,6 +133,14 @@ Bassboost:
   Sub Bass Gain: +12 dB
   Harmonics: 40%
   Output Gain: 0 dB
+```
+
+### Recommended starting points for the new effects
+
+```
+Air Exciter:      Enable ON, Cutoff 3500 Hz, Intensity 30%
+Stereo Widener:   Enable ON, Width 120%, Crossover 150 Hz
+Reverb:           Enable ON, Room Size 50%, Damping 50%, Wet Mix 30%
 ```
 
 ## Files changed vs upstream
@@ -91,11 +156,14 @@ apps/tagtree.c/.h                   — tagtree_goto_album() (Database jump for 
 apps/root_menu.c, tree.c, gui/wps.c — Go to Album navigation wiring
 apps/timed_brightness.c/.h          — Time-based auto brightness controller
 apps/menus/display_menu.c           — Timed Brightness submenu
-lib/rbcodec/SOURCES                 — bassboost.c + crystalizer.c
-lib/rbcodec/dsp/dsp_proc_database.h — BASSBOOST + CRYSTALIZER registered
-lib/rbcodec/dsp/dsp_proc_settings.h — Includes both headers
+lib/rbcodec/SOURCES                 — bassboost.c + crystalizer.c + exciter.c + widener.c + reverb.c
+lib/rbcodec/dsp/dsp_proc_database.h — BASSBOOST + CRYSTALIZER + EXCITER + WIDENER + REVERB registered
+lib/rbcodec/dsp/dsp_proc_settings.h — Includes all effect headers
 lib/rbcodec/dsp/bassboost.c/.h      — Sub-bass isolator + Psychoacoustic Harmonics + Soft Clipper
 lib/rbcodec/dsp/crystalizer.c/.h    — 2-band transient enhancer with mix
+lib/rbcodec/dsp/exciter.c/.h        — Bandlimited treble even-harmonic generator
+lib/rbcodec/dsp/widener.c/.h        — Mid/side stereo widener with mono bass
+lib/rbcodec/dsp/reverb.c/.h         — freeverb-style damped comb reverb
 ```
 
 ## Build
@@ -116,9 +184,10 @@ Copy `rockbox.ipod` to `/.rockbox/` on the iPod. Also copy `build-ipod6g/apps/la
 
 All DSP math is **fixed-point integer** (S7.24 / S15.16 / Q31) targeting ARM926EJ-S. Biquads, gain tables, envelope followers, and saturation use `FRACMUL` / `fp_factor` / `fp_sincos`.
 
-- **Master Soft Clipper**: Dynamic waveshaper based on `soft_over = headroom - (headroom * headroom) / (headroom + over)`. Prevents wrap-around distortion and limits 64-bit bounds.
+- **Master Soft Clipper**: Dynamic waveshaper based on `soft_over = headroom - (headroom * headroom) / (headroom + over)`. Threshold and ceiling track the format's real full scale (`2^frac_bits`, i.e. `2^27` for 16-bit sources), so boosted peaks are soft-limited instead of hard-clipping at the output conversion. Every gain-adding stage (bassboost, crystalizer, exciter, widener, reverb) applies it.
 - **Psychoacoustic Harmonics**: Full-wave rectification `abs(x)` followed by a 1-pole DC blocker to generate even-order upper harmonics.
 - **Crystalizer 2-band**: LR2 series — LP@60 → LP@3000 = band 0, remainder = band 1
+- **Reverb**: freeverb comb tunings scaled by output rate; feedback set by Room Size, one-pole damped loop; delay buffers `core_alloc`'d only while enabled.
 
 ## QoL features
 
