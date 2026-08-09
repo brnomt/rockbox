@@ -134,4 +134,6 @@ Play/pause and volume buttons on Apple inline earphones (headphone jack remote) 
 - **Volume +/−** — volume up/down, also works in menus and the file browser
 - Keeps working with the hold switch on, like the OF
 
+**Requirements:** a 6G unit with the "Mikey" chip (late-2008/2009 120/160GB models; the early-2007 80/160GB models lack it — check `Settings → Debug → View HW Info`, line `mikey remote ctrl` must show `ok` with headphones plugged in), and Apple-protocol earphones for the volume buttons (center play/pause may also trigger on remotes that short the mic line).
+
 Credit: [Hemant Kumar](https://github.com/hemant6488) — [hemant6488/rockbox, ipod6g-mikey-v1](https://github.com/hemant6488/rockbox/releases/tag/ipod6g-mikey-v1); the patch was merged into official Rockbox upstream (commit `b217a55059`) and is included in this fork.
