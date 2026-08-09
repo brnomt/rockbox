@@ -125,3 +125,13 @@ New item in the WPS context menu (Select button on iPod while playing):
 - Skips the ID3 info screen, jumps straight to directory browsing
 
 Implementation: `apps/onplay.c` — `go_to_album()` function + `go_to_album_item` MENUITEM_FUNCTION
+
+## Inline Earphone Remote (iPod 6G)
+
+Play/pause and volume buttons on Apple inline earphones (headphone jack remote) are decoded via the "Mikey" I2C controller (bus 0, address 0x72):
+
+- **Center button** — play/pause/resume on every screen (reported as a multimedia key, like the OF)
+- **Volume +/−** — volume up/down, also works in menus and the file browser
+- Keeps working with the hold switch on, like the OF
+
+Credit: [Hemant Kumar](https://github.com/hemant6488) — [hemant6488/rockbox, ipod6g-mikey-v1](https://github.com/hemant6488/rockbox/releases/tag/ipod6g-mikey-v1); the patch was merged into official Rockbox upstream (commit `b217a55059`) and is included in this fork.
