@@ -12,7 +12,7 @@
  *   Input -> LR4 crossover (2 cascaded LP biquads)
  *           -> Constant sub-bass boost (additive delta injection)
  *           -> Optional even-harmonic generator (MaxxBass-style)
- *           -> Output gain -> Soft clipper -> Output
+ *           -> Output gain -> Linked peak limiter -> Output
  *
  * LR4 (-24 dB/octave) isolates sub-bass. Boost is applied to the full
  * sub band (not dynamics-dependent). Harmonics require sub_bass_gain > 0.
@@ -57,6 +57,11 @@ static int32_t harmonics_gain = 0;
 static int64_t dc_state[MAX_CH];
 static int64_t last_even_harm[MAX_CH];
 static int32_t dc_coeff;
+
+/* Linked-channel peak limiter */
+static int64_t lim_env;           /* peak envelope, FS units */
+static int32_t lim_gain = UNITY;  /* applied gain, Q24 */
+static int32_t lim_rls;           /* 1-pole release coefficient, Q24 */
 
 /* ------------------------------------------------------------------ */
 /*  Per-sample biquad step (direct form 1)                            */
@@ -169,6 +174,8 @@ static void flush_filter(void)
     filter_flush(&lpf2);
     memset(dc_state, 0, sizeof(dc_state));
     memset(last_even_harm, 0, sizeof(last_even_harm));
+    lim_env  = 0;
+    lim_gain = UNITY;
 }
 
 /* ------------------------------------------------------------------ */
@@ -186,18 +193,16 @@ static void bassboost_process(struct dsp_proc_entry *this,
 
     /* Full scale is 2^frac_bits (2^27 for 16-bit sources, 2^31 for 32-bit).
      * The limiter must track it: a fixed 2^31 threshold sits far above the
-     * real full scale of 16-bit audio and never engages, so boosted peaks
-     * hard-clip at the output conversion instead of being soft-limited. */
+     * real full scale of 16-bit audio and never engages. */
     const int frac_bits = buf->format.frac_bits;
-    const int64_t max_val  = ((int64_t)1 << frac_bits) - 1;
-    const int64_t thresh   = (max_val * 7) >> 3;   /* 7/8 FS, ~ -1.9 dBFS */
-    const int64_t headroom = max_val - thresh;
+    const int64_t max_val = ((int64_t)1 << frac_bits) - 1;
+    const int64_t thresh  = (max_val * 7) >> 3;   /* 7/8 FS, ~ -1.9 dBFS */
 
     for (int n = 0; n < count; n++)
     {
         int32_t L = out0[n];
         int32_t R = (num_chan > 1) ? out1[n] : L;
-        int32_t outL = 0, outR = 0;
+        int64_t g[MAX_CH] = {0, 0};
 
         for (int ch = 0; ch < num_chan; ch++)
         {
@@ -242,35 +247,50 @@ static void bassboost_process(struct dsp_proc_entry *this,
             /* Pre-shift raw_result to avoid 64-bit overflow with large output_gain */
             int64_t g_result = (raw_result >> 8) * output_gain;
             g_result >>= 16; /* 8 + 16 = 24 bits for Q24 */
-
-            /* Master soft clipper: linear up to 7/8 FS, soft knee above. The
-             * knee is asymptotic toward max_val, so output never hard-clips. */
-            int64_t abs_g = (g_result < 0) ? -g_result : g_result;
-            int32_t result;
-
-            if (abs_g <= thresh)
-            {
-                result = (int32_t)g_result;
-            }
-            else
-            {
-                int64_t over = abs_g - thresh;
-                int64_t soft_over = headroom - (headroom * headroom) / (headroom + over);
-                int64_t y = thresh + soft_over;
-                if (y > max_val) y = max_val;
-                result = (int32_t)((g_result < 0) ? -y : y);
-            }
-
-            if (ch == 0) outL = result;
-            else         outR = result;
+            g[ch] = g_result;
         }
 
-        if (num_chan == 1)
-            outR = outL;
+        /* Linked-channel peak limiter. Gain scales the waveform linearly,
+         * so a sustained heavy-bass passage is turned down cleanly instead
+         * of being flattened by a memoryless curve — which rounds every
+         * cycle of the bass waveform and generates harmonics of the bass
+         * fundamental, i.e. audible saturation. Instant attack and
+         * exponential release; env >= |sample| at all times, so the
+         * limited output never exceeds thresh. */
+        int64_t peak = (g[0] < 0) ? -g[0] : g[0];
+        if (num_chan > 1)
+        {
+            int64_t peak_r = (g[1] < 0) ? -g[1] : g[1];
+            if (peak_r > peak)
+                peak = peak_r;
+        }
+
+        if (peak >= lim_env)
+            lim_env = peak;                           /* instant attack */
+        else
+            lim_env -= (lim_env * lim_rls) >> 24;     /* exp release */
+
+        int32_t target = UNITY;
+        if (lim_env > thresh)
+            target = (int32_t)(((int64_t)thresh << 24) / lim_env);
+
+        if (target <= lim_gain)
+            lim_gain = target;                        /* instant attack */
+        else
+            lim_gain += (int32_t)(((int64_t)(target - lim_gain) * lim_rls) >> 24);
+
+        int32_t outL = (int32_t)((g[0] * lim_gain) >> 24);
+        if (outL > max_val)       outL = (int32_t)max_val;
+        else if (outL < -max_val) outL = (int32_t)(-max_val);
 
         out0[n] = outL;
         if (num_chan > 1)
+        {
+            int32_t outR = (int32_t)((g[1] * lim_gain) >> 24);
+            if (outR > max_val)       outR = (int32_t)max_val;
+            else if (outR < -max_val) outR = (int32_t)(-max_val);
             out1[n] = outR;
+        }
     }
 }
 
@@ -291,6 +311,15 @@ static bool bassboost_update(struct dsp_config *dsp,
     curr_set.crossover_hz = clamp_crossover_hz(curr_set.crossover_hz, fs);
 
     setup_filter(curr_set.crossover_hz, fs);
+
+    /* Limiter release: 1-pole with a 100 ms time constant. Slow enough to
+     * ride through low-bass cycles without per-cycle gain ripple (which
+     * would demodulate into distortion), fast enough to recover between
+     * kick drum hits. */
+    unsigned long tau_samples = fs / 10;
+    if (tau_samples < 1)
+        tau_samples = 1;
+    lim_rls = (int32_t)(UNITY / tau_samples);
 
     /* Boost gain: 0-240 maps to 0-24 dB (default 120 = +12 dB) */
     boost_gain = db_tenths_to_gain(settings->sub_bass_gain);

@@ -1,6 +1,6 @@
 # Rockbox Bassboost + Crystalizer
 
-Bass booster (fixed sub-bass gain + saturation), Crystalizer (2-band transient enhancer), Air Exciter, Stereo Widener and Mini Reverb DSP stages for Rockbox — targeting iPod Classic 6G/7G.
+Bass booster (fixed sub-bass gain + peak limiter), Crystalizer (2-band transient enhancer), Air Exciter, Stereo Widener and Mini Reverb DSP stages for Rockbox — targeting iPod Classic 6G/7G.
 
 ## Bassboost
 
@@ -10,7 +10,7 @@ Simple but extremely powerful sub-bass processor designed for maximum impact, ut
 - **Sub Bass Gain** (0–24 dB, step 0.5, default +12 dB): fixed gain boost applied directly to the sub-bass band.
 - **Harmonics** (0–100%): Psychoacoustic harmonic generator based on the MaxxBass principle (full-wave rectification + DC blocking). Creates even-order harmonics that trick the brain into hearing deep bass even if the headphones physically can't reproduce it.
 - **Output gain** (±12 dB): Master output trim.
-- **Master Soft Clipper (Waveshaper)**: Replaces hard clipping. Sits at the end of the DSP chain and softly rounds peaks that exceed the digital ceiling, preventing harsh digital distortion while maintaining massive volume.
+- **Peak Limiter**: Linked-channel peak limiter at the output (instant attack, ~100 ms exponential release). When boosted peaks exceed the ceiling (~ −1.9 dBFS), the whole waveform is scaled down linearly instead of being reshaped. Scaling is gain-based, not curve-based: a song that already has heavy bass is turned down cleanly rather than flattened every cycle, so the bass stays tight instead of saturating. Channels share one gain value, so the stereo image never shifts.
 
 ### Defaults
 
@@ -25,7 +25,7 @@ Simple but extremely powerful sub-bass processor designed for maximum impact, ut
 
 ```
 Input → LR4 LPF@crossover → [Sub Bass Gain] → [Harmonics Gen + DC Block] → ┐
-                                                                           ├→ [Soft Clipper] → Output
+                                                                           ├→ [Peak Limiter] → Output
 Input ---------------------------------------------------------------------┘
 ```
 
@@ -159,7 +159,7 @@ apps/menus/display_menu.c           — Timed Brightness submenu
 lib/rbcodec/SOURCES                 — bassboost.c + crystalizer.c + exciter.c + widener.c + reverb.c
 lib/rbcodec/dsp/dsp_proc_database.h — BASSBOOST + CRYSTALIZER + EXCITER + WIDENER + REVERB registered
 lib/rbcodec/dsp/dsp_proc_settings.h — Includes all effect headers
-lib/rbcodec/dsp/bassboost.c/.h      — Sub-bass isolator + Psychoacoustic Harmonics + Soft Clipper
+lib/rbcodec/dsp/bassboost.c/.h      — Sub-bass isolator + Psychoacoustic Harmonics + Peak Limiter
 lib/rbcodec/dsp/crystalizer.c/.h    — 2-band transient enhancer with mix
 lib/rbcodec/dsp/exciter.c/.h        — Bandlimited treble even-harmonic generator
 lib/rbcodec/dsp/widener.c/.h        — Mid/side stereo widener with mono bass
@@ -184,7 +184,7 @@ Copy `rockbox.ipod` to `/.rockbox/` on the iPod. Also copy `build-ipod6g/apps/la
 
 All DSP math is **fixed-point integer** (S7.24 / S15.16 / Q31) targeting ARM926EJ-S. Biquads, gain tables, envelope followers, and saturation use `FRACMUL` / `fp_factor` / `fp_sincos`.
 
-- **Master Soft Clipper**: Dynamic waveshaper based on `soft_over = headroom - (headroom * headroom) / (headroom + over)`. Threshold and ceiling track the format's real full scale (`2^frac_bits`, i.e. `2^27` for 16-bit sources), so boosted peaks are soft-limited instead of hard-clipping at the output conversion. Every gain-adding stage (bassboost, crystalizer, exciter, widener, reverb) applies it.
+- **Bassboost Peak Limiter**: Envelope-based gain scaler — instant attack, one-pole exponential release (~100 ms), channels linked. `env >= |sample|` always holds, so the output can never exceed the threshold (`7/8 · 2^frac_bits`); because the limiting is linear gain, it adds no harmonics on sustained bass. This replaces an earlier memoryless waveshaper (`soft_over = headroom - (headroom * headroom) / (headroom + over)`) which flattened every cycle of an already-heavy bass waveform and sounded like clipping. The other gain-adding stages (crystalizer, exciter, widener, reverb) still use the soft clipper, with threshold and ceiling tracking the format's real full scale (`2^frac_bits`, i.e. `2^27` for 16-bit sources).
 - **Psychoacoustic Harmonics**: Full-wave rectification `abs(x)` followed by a 1-pole DC blocker to generate even-order upper harmonics.
 - **Crystalizer 2-band**: LR2 series — LP@60 → LP@3000 = band 0, remainder = band 1
 - **Reverb**: freeverb comb tunings scaled by output rate; feedback set by Room Size, one-pole damped loop; delay buffers `core_alloc`'d only while enabled.
