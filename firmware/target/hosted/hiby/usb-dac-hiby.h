@@ -6,7 +6,7 @@
  *   Firmware   |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
  *                     \/            \/     \/    \/            \/
  *
- * Copyright (C) 2006-2007 Thom Johansen
+ * Copyright (C) 2026 by Michael McAllister
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,30 +17,20 @@
  * KIND, either express or implied.
  *
  ****************************************************************************/
-#ifndef _EQ_H
-#define _EQ_H
+#ifndef __USB_DAC_HIBY_H__
+#define __USB_DAC_HIBY_H__
 
-/* => support from 3 to 32 bands */
-#define EQ_NUM_BANDS 10
+#define USB_DAC_SAMPLE_RATE SAMPR_48
 
-enum eq_filter_type
-{
-    EQ_FILTER_LOW_SHELF = 0,
-    EQ_FILTER_PEAK,
-    EQ_FILTER_HIGH_SHELF,
-};
+/**
+ * Host-PCM pump for the HiBy USB DAC gadget mode: drains /dev/uac_sa
+ * into the PCM mixer. Started/stopped by the USB gadget driver when the
+ * uac_sa function is brought up/torn down.
+ *
+ * usb_dac_start() returns false if the uac_sa device never appears (the
+ * pump is not started); the caller should fall back to a safe USB mode.
+ */
+bool usb_dac_start(void);
+void usb_dac_stop(void);
 
-struct eq_band_setting
-{
-    enum eq_filter_type type;
-    int cutoff; /* Hz */
-    int q;
-    int gain;   /* +/- dB */
-};
-
-/** DSP interface **/
-void dsp_set_eq_precut(int precut);
-void dsp_set_eq_coefs(int band, const struct eq_band_setting *setting);
-void dsp_eq_enable(bool enable);
-
-#endif /* _EQ_H */
+#endif /* __USB_DAC_HIBY_H__ */

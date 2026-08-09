@@ -124,7 +124,8 @@ enum {
     SINGLE_MODE_ARTIST,
     SINGLE_MODE_COMPOSER,
     SINGLE_MODE_GROUPING,
-    SINGLE_MODE_GENRE
+    SINGLE_MODE_GENRE,
+    SINGLE_MODE_PLAYLIST,
 };
 
 enum
@@ -826,7 +827,7 @@ struct user_settings
     int usb_keypad_mode;
 #endif
 
-#ifdef USB_ENABLE_AUDIO
+#if defined(USB_ENABLE_AUDIO) || defined(HAVE_HOST_USB_AUDIO)
     int usb_audio;
 #endif
 

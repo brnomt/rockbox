@@ -187,6 +187,10 @@ target/hosted/hiby/hibylinux_codec.c
 #endif
 #endif
 
+#if (defined(HIBY_R1) || defined(HIBY_R3PROII)) && !defined(SIMULATOR)
+target/hosted/hiby/usb-dac-hiby.c
+#endif
+
 #if defined(AGPTEK_ROCKER) && !defined(SIMULATOR)
 target/hosted/agptek/button-agptek.c
 target/hosted/agptek/debug-agptek.c
@@ -1671,6 +1675,7 @@ target/arm/s5l8702/ipod6g/serial-6g.c
 #ifndef BOOTLOADER
 target/arm/s5l8702/ipod6g/audio-6g.c
 target/arm/s5l8702/ipod6g/cscodec-6g.c
+target/arm/s5l8702/ipod6g/mikey-6g.c
 #endif /* BOOTLOADER */
 #endif /* IPOD_6G */
 

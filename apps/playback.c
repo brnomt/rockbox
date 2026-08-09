@@ -66,8 +66,11 @@
 #include <strings.h>  /* For strncasecmp() */
 #endif
 
+#if defined(USB_ENABLE_AUDIO) || defined(HAVE_HOST_USB_AUDIO)
 #ifdef USB_ENABLE_AUDIO
 #include "usbstack/usb_audio.h"
+#endif
+#include "usb.h"
 #include "splash.h"
 #include "lang.h"
 #endif
@@ -2682,6 +2685,9 @@ static bool single_mode_do_pause(int id3_hid)
         if (global_settings.single_mode == SINGLE_MODE_TRACK)
             return true;
 
+        if (global_settings.single_mode == SINGLE_MODE_PLAYLIST)
+            return (skip_pending == TRACK_SKIP_AUTO_NEW_PLAYLIST);
+
         char *previous_tag = single_mode_get_id3_tag(id3_get(PLAYING_ID3));
         char *new_tag = single_mode_get_id3_tag(bufgetid3(id3_hid));
         return previous_tag == NULL ||
@@ -2993,7 +2999,7 @@ static void audio_start_playback(const struct audio_resume_info *resume_info,
  * a splash message to the user.
  * NOTE: if USBAudio ever gets its own DSP channel, this block can go away!
  */
-#ifdef USB_ENABLE_AUDIO
+#if defined(USB_ENABLE_AUDIO) || defined(HAVE_HOST_USB_AUDIO)
     if (usb_audio_get_active())
     {
         queue_reply(&audio_queue, 0);
@@ -3033,12 +3039,18 @@ static void audio_start_playback(const struct audio_resume_info *resume_info,
         track_event_flags = TEF_NONE;
         ff_rw_mode = false;
 
+        /*
+         * When restarting playback or resuming from a paused state,
+         * the PCM buffer should be cleared to ensure crossfade will
+         * not be performed.
+         */
+        if ((flags & AUDIO_START_RESTART) || old_status == PLAY_PAUSED)
+            pcmbuf_play_stop();
+
         if (flags & AUDIO_START_RESTART)
         {
             /* Clear out some stuff to resume the current track where it
                left off */
-            pcmbuf_play_stop();
-
             resume.elapsed = id3_get(PLAYING_ID3)->elapsed;
             resume.offset = id3_get(PLAYING_ID3)->offset;
             skip_resume_adjustments = id3_get(PLAYING_ID3)->skip_resume_adjustments;
