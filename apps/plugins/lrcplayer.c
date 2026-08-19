@@ -2714,15 +2714,16 @@ static int lrc_main(void)
 
 #ifdef HAVE_BACKLIGHT
     int saved_hold_bl = 0;
+    bool hold_override_active = false; /* tracks current override state */
     if (prefs.backlight_on)
     {
         backlight_ignore_timeout();
 #ifdef HAS_BUTTON_HOLD
-        /* Override global hold-backlight policy so lyrics stay visible when
-         * the hold switch is toggled while the plugin is active. The
-         * original setting is restored on exit. */
+        /* Save the original hold-backlight policy so it can be restored on
+         * exit. The override itself is applied/removed dynamically in the
+         * loop depending on whether audio is playing — when paused/stopped
+         * the screen is allowed to turn off normally under hold. */
         saved_hold_bl = rb->global_settings->backlight_on_button_hold;
-        rb->backlight_set_on_button_hold(2); /* 2 = always on under hold */
 #endif
     }
 #endif
@@ -2734,6 +2735,28 @@ static int lrc_main(void)
 
     while (ret == LRC_GOTO_MAIN)
     {
+#ifdef HAVE_BACKLIGHT
+#ifdef HAS_BUTTON_HOLD
+        /* Apply the hold-backlight override only while audio is playing.
+         * When paused or stopped, restore the original policy so the
+         * screen can turn off normally under hold. */
+        if (prefs.backlight_on)
+        {
+            bool want_override = AUDIO_PLAY;
+            if (want_override && !hold_override_active)
+            {
+                rb->backlight_set_on_button_hold(2); /* always on under hold */
+                hold_override_active = true;
+            }
+            else if (!want_override && hold_override_active)
+            {
+                rb->backlight_set_on_button_hold(saved_hold_bl);
+                hold_override_active = false;
+            }
+        }
+#endif
+#endif
+
         if (check_audio_status())
         {
             update_display_state = true;
