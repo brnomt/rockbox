@@ -2742,7 +2742,7 @@ static int lrc_main(void)
          * screen can turn off normally under hold. */
         if (prefs.backlight_on)
         {
-            bool want_override = AUDIO_PLAY;
+            bool want_override = (AUDIO_PLAY && !AUDIO_PAUSE);
             if (want_override && !hold_override_active)
             {
                 rb->backlight_set_on_button_hold(2); /* always on under hold */
