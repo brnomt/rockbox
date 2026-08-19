@@ -2709,6 +2709,15 @@ static int lrc_main(void)
 
     while (ret == LRC_GOTO_MAIN)
     {
+#ifdef HAVE_BACKLIGHT
+#ifdef HAS_BUTTON_HOLD
+        /* Keep lyrics visible even when HOLD is active if this plugin setting
+         * is enabled; this does not alter global hold-backlight settings. */
+        if (prefs.backlight_on && rb->button_hold())
+            rb->backlight_on();
+#endif
+#endif
+
         if (check_audio_status())
         {
             update_display_state = true;
