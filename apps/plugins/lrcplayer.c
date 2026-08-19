@@ -1588,8 +1588,6 @@ static void display_time(void)
     /* Same width as "[HOLD]" (6 chars, monospace font) so the area is always
      * refreshed and stale text never lingers after HOLD is released. */
     const char *hold_str = rb->button_hold() ? "[HOLD]" : "      ";
-    int hold_w;
-    rb->screens[0]->getstringsize(hold_str, NULL, &hold_w);
 #endif
     FOR_NB_SCREENS(i)
     {
@@ -1598,8 +1596,14 @@ static void display_time(void)
         display->setfont(FONT_SYSFIXED);
         display->putsxy(0, y, temp_buf);
 #ifdef HAS_BUTTON_HOLD
-        /* 2px right margin so the label isn't clipped at the screen edge. */
-        display->putsxy(vp_info[i].width - hold_w - 2, y, hold_str);
+        /* Place right after the time string with a 6px gap so it never
+         * clips at the screen edge. */
+        int time_w, hold_w;
+        display->getstringsize(temp_buf, &time_w, NULL);
+        display->getstringsize(hold_str, &hold_w, NULL);
+        int hold_x = time_w + 6;
+        if (hold_x + hold_w <= vp_info[i].width)
+            display->putsxy(hold_x, y, hold_str);
 #endif
         rb->gui_scrollbar_draw(display, 0, y+SYSFONT_HEIGHT+1,
                                vp_info[i].width, SYSFONT_HEIGHT-2,
