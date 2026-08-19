@@ -12,7 +12,7 @@
  *   Input -> LR4 crossover (2 cascaded LP biquads)
  *           -> Constant sub-bass boost (additive delta injection)
  *           -> Optional even-harmonic generator (MaxxBass-style)
- *           -> Output gain -> Linked peak limiter -> Output
+ *           -> Branch gain -> Linked peak limiter (bass branch only) -> Recombine -> Output
  *
  * LR4 (-24 dB/octave) isolates sub-bass. Boost is applied to the full
  * sub band (not dynamics-dependent). Harmonics require sub_bass_gain > 0.
@@ -202,7 +202,8 @@ static void bassboost_process(struct dsp_proc_entry *this,
     {
         int32_t L = out0[n];
         int32_t R = (num_chan > 1) ? out1[n] : L;
-        int64_t g[MAX_CH] = {0, 0};
+        int64_t dry[MAX_CH] = {0, 0};
+        int64_t wet_branch[MAX_CH] = {0, 0};
 
         for (int ch = 0; ch < num_chan; ch++)
         {
@@ -240,27 +241,25 @@ static void bassboost_process(struct dsp_proc_entry *this,
                 harm = (hp_out * harmonics_gain) >> 24;
             }
 
-            /* When wet = sub (no boost), output = x unless harmonics are on */
+            /* Build only the processed bass branch: (wet - sub) + harmonics */
             int64_t delta_bass = wet - sub;
-            int64_t raw_result = (int64_t)x + delta_bass + harm;
+            int64_t branch = delta_bass + harm;
 
-            /* Pre-shift raw_result to avoid 64-bit overflow with large output_gain */
-            int64_t g_result = (raw_result >> 8) * output_gain;
-            g_result >>= 16; /* 8 + 16 = 24 bits for Q24 */
-            g[ch] = g_result;
+            /* Keep dry path untouched; gain applies only to the bass branch. */
+            dry[ch] = x;
+
+            /* Pre-shift branch to avoid 64-bit overflow with large output_gain */
+            int64_t g_branch = (branch >> 8) * output_gain;
+            g_branch >>= 16; /* 8 + 16 = 24 bits for Q24 */
+            wet_branch[ch] = g_branch;
         }
 
-        /* Linked-channel peak limiter. Gain scales the waveform linearly,
-         * so a sustained heavy-bass passage is turned down cleanly instead
-         * of being flattened by a memoryless curve — which rounds every
-         * cycle of the bass waveform and generates harmonics of the bass
-         * fundamental, i.e. audible saturation. Instant attack and
-         * exponential release; env >= |sample| at all times, so the
-         * limited output never exceeds thresh. */
-        int64_t peak = (g[0] < 0) ? -g[0] : g[0];
+        /* Linked-channel peak limiter over the boosted branch only.
+         * This prevents low-frequency peaks from ducking the dry mids/highs. */
+        int64_t peak = (wet_branch[0] < 0) ? -wet_branch[0] : wet_branch[0];
         if (num_chan > 1)
         {
-            int64_t peak_r = (g[1] < 0) ? -g[1] : g[1];
+            int64_t peak_r = (wet_branch[1] < 0) ? -wet_branch[1] : wet_branch[1];
             if (peak_r > peak)
                 peak = peak_r;
         }
@@ -279,14 +278,18 @@ static void bassboost_process(struct dsp_proc_entry *this,
         else
             lim_gain += (int32_t)(((int64_t)(target - lim_gain) * lim_rls) >> 24);
 
-        int32_t outL = (int32_t)((g[0] * lim_gain) >> 24);
+        int64_t limL = (wet_branch[0] * lim_gain) >> 24;
+        int64_t mixL = dry[0] + limL;
+        int32_t outL = (int32_t)mixL;
         if (outL > max_val)       outL = (int32_t)max_val;
         else if (outL < -max_val) outL = (int32_t)(-max_val);
 
         out0[n] = outL;
         if (num_chan > 1)
         {
-            int32_t outR = (int32_t)((g[1] * lim_gain) >> 24);
+            int64_t limR = (wet_branch[1] * lim_gain) >> 24;
+            int64_t mixR = dry[1] + limR;
+            int32_t outR = (int32_t)mixR;
             if (outR > max_val)       outR = (int32_t)max_val;
             else if (outR < -max_val) outR = (int32_t)(-max_val);
             out1[n] = outR;
@@ -332,7 +335,7 @@ static bool bassboost_update(struct dsp_config *dsp,
     else
         harmonics_gain = 0;
 
-    /* Output gain */
+    /* Bass-branch gain (applied before branch limiter/recombine) */
     output_gain = db_tenths_to_gain(settings->output_gain);
     if (output_gain > (UNITY * 16))
         output_gain = UNITY * 16;
