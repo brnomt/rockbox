@@ -1,18 +1,16 @@
 # 🎸 Rockbox Bassboost + Crystalizer
 
-Bass booster, Crystalizer, Air Exciter, Stereo Widener and Mini Reverb DSP stages for Rockbox — targeting iPod Classic 6G/7G. 🎧
-
-> Sub-bass you feel, not just hear. Psychoacoustic harmonics make bass audible even on small drivers.
+Bass booster (fixed sub-bass gain + peak limiter), Crystalizer (2-band transient enhancer), Air Exciter, Stereo Widener and Mini Reverb DSP stages for Rockbox — targeting iPod Classic 6G/7G.
 
 ## 🔊 Bassboost
 
-A simple but powerful sub-bass processor with psychoacoustic harmonics (MaxxBass-style) to make bass audible on small headphones/drivers.
+Simple but extremely powerful sub-bass processor designed for maximum impact, utilizing psychoacoustic harmonics to make bass audible on small drivers.
 
-- **Crossover** (40–500 Hz): 4th-order Linkwitz-Riley (-24 dB/oct) to isolate sub-bass.
-- **Sub Bass Gain** (0–24 dB, step 0.5, default +12 dB): fixed gain applied to the sub-bass band.
-- **Harmonics** (0–100%): psychoacoustic harmonic generator (full-wave rectification + DC blocking). Creates even-order harmonics that trick the brain into perceiving deep bass.
-- **Output gain** (±12 dB): master trim of the processed branch.
-- **Peak Limiter**: linked-channel peak limiter on the **wet branch** (instant attack, ~100 ms exponential release). When boosted peaks exceed the ceiling (~ −1.9 dBFS), the bass branch is scaled down linearly instead of flattening the waveform. Because it lives on the wet branch, **it does not duck mids/highs** — the annoying global pumping is gone. Channels share one gain value, so the stereo image never shifts.
+- **Crossover** (40–500 Hz): 4th-order Linkwitz-Riley (-24 dB/octave) for surgical sub-bass isolation.
+- **Sub Bass Gain** (0–24 dB, step 0.5, default +12 dB): fixed gain boost applied directly to the sub-bass band.
+- **Harmonics** (0–100%): Psychoacoustic harmonic generator based on the MaxxBass principle (full-wave rectification + DC blocking). Creates even-order harmonics that trick the brain into hearing deep bass even if the headphones physically can't reproduce it.
+- **Output gain** (±12 dB): Master output trim of the processed branch.
+- **Peak Limiter**: Linked-channel peak limiter on the **wet branch** (instant attack, ~100 ms exponential release). When boosted peaks exceed the ceiling (~ −1.9 dBFS), the bass branch is scaled down linearly instead of being reshaped. Scaling is gain-based, not curve-based: a song that already has heavy bass is turned down cleanly rather than flattened every cycle, so the bass stays tight instead of saturating. Because the limiter lives on the wet branch, **it does not duck mids/highs** — the global pumping artifact is eliminated. Channels share one gain value, so the stereo image never shifts.
 
 ### Defaults
 
@@ -26,9 +24,9 @@ A simple but powerful sub-bass processor with psychoacoustic harmonics (MaxxBass
 ### Signal flow
 
 ```
-                 ┌→ [Sub Bass Gain] → [Harmonics + DC Block] → [Branch Gain] → [Peak Limiter (wet only)] → ┐
-Input → LR4 LPF ┤                                                                                          ├→ (+) → Output
-                 └─────────────────────── dry (mids/highs untouched) ─────────────────────────────────────┘
+                 ┌→ [Sub Bass Gain] → [Harmonics Gen + DC Block] → [Branch Gain] → [Peak Limiter (wet only)] → ┐
+Input → LR4 LPF ┤                                                                                              ├→ (+) → Output
+                 └─────────────────────── dry (mids/highs untouched) ─────────────────────────────────────────┘
 ```
 
 ## ✨ Crystalizer
@@ -53,9 +51,9 @@ Input → [LPF@60] → [LPF@3000] → Band Mid (60-3000) → enhancer → ┐
 
 ## 🌬️ Air Exciter
 
-Bandlimited even-harmonic generator for the treble — adds "air" and perceived detail without harshness. Only the isolated treble band is driven non-linear, so the generated harmonics stay in the treble instead of intermodulating the whole spectrum.
+Bandlimited even-harmonic generator for the treble — adds "air" and perceived detail without harshness. This is the corrected take on a classic exciter: only the isolated treble band is driven non-linear, so the generated harmonics stay in the treble instead of intermodulating the whole spectrum (the failure mode of a full-band soft-clip exciter).
 
-- **Cutoff** (2000–8000 Hz): LR4 high-pass (-24 dB/oct) isolating the band to be excited.
+- **Cutoff** (2000–8000 Hz): LR4 high-pass (-24 dB/octave) isolating the band to be excited.
 - **Intensity** (0–100%): amount of generated harmonics mixed back in.
 
 Uses the same MaxxBass-style building blocks as the bassboost Harmonics knob (full-wave rectify + 1-pole DC block), applied to the high-passed signal.
@@ -64,8 +62,8 @@ Uses the same MaxxBass-style building blocks as the bassboost Harmonics knob (fu
 
 ```
 Input → LR4 HPF@cutoff → [Rectify + DC Block] → [× Intensity] → ┐
-                                                                  ├→ [Soft Clipper] → Output
-Input ----------------------------------------------------------┘
+                                                                 ├→ [Soft Clipper] → Output
+Input -----------------------------------------------------------┘
 ```
 
 ## 🎚️ Stereo Widener
@@ -99,8 +97,8 @@ On device: **Settings → Sound Settings → Bassboost / Crystalizer / Air Excit
 ### Bassboost menu
 - **Enable**
 - **Crossover** (40–500 Hz, step 10)
-- **Sub Bass Gain** (0–24 dB, step 0.5) — gain added to the sub-bass frequencies.
-- **Harmonics** (0–100%, step 5) — psychoacoustic upper harmonics mix to enhance perceived bass on small speakers.
+- **Sub Bass Gain** (0–24 dB, step 0.5) — Gain added to the sub-bass frequencies.
+- **Harmonics** (0–100%, step 5) — Psychoacoustic upper harmonics mix to enhance perceived bass on small speakers.
 - **Output Gain** (±12 dB, step 0.5)
 
 ### Crystalizer menu
@@ -188,8 +186,8 @@ Copy `rockbox.ipod` to `/.rockbox/` on the iPod. Also copy `build-ipod6g/apps/la
 
 All DSP math is **fixed-point integer** (S7.24 / S15.16 / Q31) targeting ARM926EJ-S. Biquads, gain tables, envelope followers, and saturation use `FRACMUL` / `fp_factor` / `fp_sincos`.
 
-- **Bassboost Peak Limiter**: envelope-based gain scaler — instant attack, one-pole exponential release (~100 ms), channels linked. `env >= |sample|` always holds, so the output can never exceed the threshold (`7/8 · 2^frac_bits`); because the limiting is linear gain, it adds no harmonics on sustained bass. This replaces an earlier memoryless waveshaper (`soft_over = headroom - (headroom * headroom) / (headroom + over)`) which flattened every cycle of an already-heavy bass waveform and sounded like clipping. **The limiter now lives on the wet branch**, not the full mix, so bass peaks no longer duck mids/highs. The other gain-adding stages (crystalizer, exciter, widener, reverb) still use the soft clipper, with threshold and ceiling tracking the format's real full scale (`2^frac_bits`, i.e. `2^27` for 16-bit sources).
-- **Psychoacoustic Harmonics**: full-wave rectification `abs(x)` followed by a 1-pole DC blocker to generate even-order upper harmonics.
+- **Bassboost Peak Limiter**: Envelope-based gain scaler — instant attack, one-pole exponential release (~100 ms), channels linked. `env >= |sample|` always holds, so the output can never exceed the threshold (`7/8 · 2^frac_bits`); because the limiting is linear gain, it adds no harmonics on sustained bass. This replaces an earlier memoryless waveshaper (`soft_over = headroom - (headroom * headroom) / (headroom + over)`) which flattened every cycle of an already-heavy bass waveform and sounded like clipping. **The limiter now lives on the wet branch**, not the full mix, so bass peaks no longer duck mids/highs. The other gain-adding stages (crystalizer, exciter, widener, reverb) still use the soft clipper, with threshold and ceiling tracking the format's real full scale (`2^frac_bits`, i.e. `2^27` for 16-bit sources).
+- **Psychoacoustic Harmonics**: Full-wave rectification `abs(x)` followed by a 1-pole DC blocker to generate even-order upper harmonics.
 - **Crystalizer 2-band**: LR2 series — LP@60 → LP@3000 = band 0, remainder = band 1
 - **Reverb**: freeverb comb tunings scaled by output rate; feedback set by Room Size, one-pole damped loop; delay buffers `core_alloc`'d only while enabled.
 
@@ -219,10 +217,10 @@ Implementation: `apps/timed_brightness.c/.h`, menu items in `apps/menus/display_
 
 ### 🎤 Lrcplayer: Backlight Always On honors HOLD
 
-When you're in `Lrcplayer` showing lyrics and **Backlight Always On** is enabled (`Lrcplayer → Menu → Theme Settings → Backlight Always On`), the screen **stays on** even if you flip the HOLD switch. 🎉
+When `Lrcplayer` is showing lyrics and **Backlight Always On** is enabled (`Lrcplayer → Menu → Theme Settings → Backlight Always On`), the display **stays on** even if the HOLD switch is toggled. 🎉
 
-- Reuses the existing setting — no new option.
-- Only applies while Lrcplayer is active; on exit, the global HOLD/backlight behavior goes back to normal.
+- Reuses the existing setting — no new option is added.
+- Only applies while Lrcplayer is active; on exit, the global HOLD/backlight behavior is restored to its previous state.
 - Internally forces `backlight_on_button_hold = 2` (always on under hold) on entry and restores the original value on exit.
 
 Implementation: `apps/plugins/lrcplayer.c` (`lrc_main`), new API `backlight_set_on_button_hold` in `apps/plugin.h`/`apps/plugin.c` (PLUGIN_API_VERSION 285).
