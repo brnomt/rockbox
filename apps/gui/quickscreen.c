@@ -41,9 +41,9 @@
 #include "appevents.h"
 #include "statusbar-skinned.h"
 
- /* 1 top, 1 bottom, 2 on either side, 1 for the icons
-  * if enough space, top and bottom have 2 lines */
-#define MIN_LINES 5
+ /* 2 lines for each of the three vertical sections (top/middle/bottom).
+    If less space is available, the top and bottom each lose a line. */
+#define MIN_LINES (3*2)
 #define MAX_NEEDED_LINES 10
  /* pixels between the 2 center items minimum or between text and icons,
   * and between text and parent boundaries */
@@ -416,14 +416,10 @@ static void quickscreen_run(struct quickscreen * qs)
         }
         else if (button == qs->button_enter)
             can_quit = true;
-        else if (button == ACTION_QS_VOLUP) {
+        else if (button == ACTION_QS_VOLUP)
             adjust_volume(1);
-            sb_skin_force_next_update();
-        }
-        else if (button == ACTION_QS_VOLDOWN) {
+        else if (button == ACTION_QS_VOLDOWN)
             adjust_volume(-1);
-            sb_skin_force_next_update();
-        }
         else if (button == ACTION_STD_CONTEXT)
         {
             qs->result |= QUICKSCREEN_GOTO_SHORTCUTS_MENU;
@@ -434,6 +430,10 @@ static void quickscreen_run(struct quickscreen * qs)
 
         if (button == ACTION_STD_CANCEL)
             break;
+
+        /* Ignore SBS update_delay, so that setting
+           changes are immediately visible. */
+        sb_skin_force_next_update();
     }
     /* Notify that we're exiting this screen */
     cond_talk_ids_fq(VOICE_OK);
