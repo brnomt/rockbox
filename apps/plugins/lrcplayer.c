@@ -1584,12 +1584,24 @@ static void display_time(void)
                             current.elapsed/60000, (current.elapsed/1000)%60,
                             current.length/60000, (current.length)/1000%60);
     int y = (prefs.display_title? font_ui_height:0);
+#ifdef HAS_BUTTON_HOLD
+    bool hold = rb->button_hold();
+    const char hold_str[] = "[HOLD]";
+#endif
     FOR_NB_SCREENS(i)
     {
         struct screen* display = rb->screens[i];
         display->set_viewport(&vp_info[i]);
         display->setfont(FONT_SYSFIXED);
         display->putsxy(0, y, temp_buf);
+#ifdef HAS_BUTTON_HOLD
+        if (hold)
+        {
+            int w;
+            display->getstringsize(hold_str, NULL, &w);
+            display->putsxy(vp_info[i].width - w, y, hold_str);
+        }
+#endif
         rb->gui_scrollbar_draw(display, 0, y+SYSFONT_HEIGHT+1,
                                vp_info[i].width, SYSFONT_HEIGHT-2,
                                current.length, 0, current.elapsed, HORIZONTAL);
