@@ -2698,8 +2698,18 @@ static int lrc_main(void)
     }
 
 #ifdef HAVE_BACKLIGHT
+    int saved_hold_bl = 0;
     if (prefs.backlight_on)
+    {
         backlight_ignore_timeout();
+#ifdef HAS_BUTTON_HOLD
+        /* Override global hold-backlight policy so lyrics stay visible when
+         * the hold switch is toggled while the plugin is active. The
+         * original setting is restored on exit. */
+        saved_hold_bl = rb->global_settings->backlight_on_button_hold;
+        rb->backlight_set_on_button_hold(2); /* 2 = always on under hold */
+#endif
+    }
 #endif
 
     /* in case settings that may affect break position
@@ -2709,15 +2719,6 @@ static int lrc_main(void)
 
     while (ret == LRC_GOTO_MAIN)
     {
-#ifdef HAVE_BACKLIGHT
-#ifdef HAS_BUTTON_HOLD
-        /* Keep lyrics visible even when HOLD is active if this plugin setting
-         * is enabled; this does not alter global hold-backlight settings. */
-        if (prefs.backlight_on && rb->button_hold())
-            rb->backlight_on();
-#endif
-#endif
-
         if (check_audio_status())
         {
             update_display_state = true;
@@ -2804,7 +2805,12 @@ static int lrc_main(void)
 
 #ifdef HAVE_BACKLIGHT
     if (prefs.backlight_on)
+    {
+#ifdef HAS_BUTTON_HOLD
+        rb->backlight_set_on_button_hold(saved_hold_bl);
+#endif
         backlight_use_settings();
+    }
 #endif
 
     return ret;

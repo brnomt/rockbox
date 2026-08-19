@@ -179,7 +179,7 @@ int plugin_open(const char *plugin, const char *parameter);
  * when this happens please take the opportunity to sort in
  * any new functions "waiting" at the end of the list.
  */
-#define PLUGIN_API_VERSION 284
+#define PLUGIN_API_VERSION 285
 
 /* 239 Marks the removal of ARCHOS HWCODEC and CHARCELL */
 
@@ -1045,6 +1045,11 @@ struct plugin_api {
     int (*gesture_flick_get_in_vp)(const struct gesture_event *gevt,
                                    const struct viewport *vp);
     int (*gesture_flick_get)(const struct gesture_event *gevt);
+#endif
+
+    /* backlight control for hold switch (0=normal, 1=off, 2=on) */
+#ifdef HAS_BUTTON_HOLD
+    void (*backlight_set_on_button_hold)(int index);
 #endif
 };
 

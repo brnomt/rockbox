@@ -880,6 +880,10 @@ static const struct plugin_api rockbox_api = {
     gesture_flick_get_in_vp,
     gesture_flick_get,
 #endif
+
+#ifdef HAS_BUTTON_HOLD
+    backlight_set_on_button_hold,
+#endif
 };
 
 static int plugin_buffer_handle;
