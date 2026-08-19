@@ -1,22 +1,22 @@
 # 🎸 Rockbox Bassboost + Crystalizer
 
-Bass booster, Crystalizer, Air Exciter, Stereo Widener y Mini Reverb DSP stages para Rockbox — pensado para iPod Classic 6G/7G. 🎧
+Bass booster, Crystalizer, Air Exciter, Stereo Widener and Mini Reverb DSP stages for Rockbox — targeting iPod Classic 6G/7G. 🎧
 
-> Sub-bass que se siente, no que se ve.armónicos psychoacústicos para que el grave se escuche incluso en drivers chicos.
+> Sub-bass you feel, not just hear. Psychoacoustic harmonics make bass audible even on small drivers.
 
 ## 🔊 Bassboost
 
-Un procesador de sub-bass simple pero potente, con armónicos psychoacústicos (estilo MaxxBass) para hacer audible el grave en auriculares/drivers pequeños.
+A simple but powerful sub-bass processor with psychoacoustic harmonics (MaxxBass-style) to make bass audible on small headphones/drivers.
 
-- **Crossover** (40–500 Hz): Linkwitz-Riley 4º orden (-24 dB/oct) para aislar el sub-bass.
-- **Sub Bass Gain** (0–24 dB, step 0.5, default +12 dB): ganancia fija sobre la banda de sub-bass.
-- **Harmonics** (0–100%): generador de armónicos psychoacústicos (rectificación de onda completa + bloqueo DC). Crea armónicos pares que engañan al cerebro para que perciba graves profundos.
-- **Output gain** (±12 dB): trim maestro de la rama procesada.
-- **Peak Limiter**: limiter de pico linked-channel sobre la **rama wet** (ataque instantáneo, release exponencial ~100 ms). Cuando los picos boosteados superan el techo (~ −1.9 dBFS), se escala la rama de graves linealmente en vez de aplanar la onda. Al estar en la rama wet, **no duckea medios/agudos** — el bombeo molesto del limiter global se elimina. Los canales comparten un gain, así que la imagen estéreo no se corre.
+- **Crossover** (40–500 Hz): 4th-order Linkwitz-Riley (-24 dB/oct) to isolate sub-bass.
+- **Sub Bass Gain** (0–24 dB, step 0.5, default +12 dB): fixed gain applied to the sub-bass band.
+- **Harmonics** (0–100%): psychoacoustic harmonic generator (full-wave rectification + DC blocking). Creates even-order harmonics that trick the brain into perceiving deep bass.
+- **Output gain** (±12 dB): master trim of the processed branch.
+- **Peak Limiter**: linked-channel peak limiter on the **wet branch** (instant attack, ~100 ms exponential release). When boosted peaks exceed the ceiling (~ −1.9 dBFS), the bass branch is scaled down linearly instead of flattening the waveform. Because it lives on the wet branch, **it does not duck mids/highs** — the annoying global pumping is gone. Channels share one gain value, so the stereo image never shifts.
 
 ### Defaults
 
-| Parámetro | Default |
+| Parameter | Default |
 |-----------|---------|
 | Crossover | 80 Hz |
 | Sub Bass Gain | +12 dB |
@@ -28,37 +28,37 @@ Un procesador de sub-bass simple pero potente, con armónicos psychoacústicos (
 ```
                  ┌→ [Sub Bass Gain] → [Harmonics + DC Block] → [Branch Gain] → [Peak Limiter (wet only)] → ┐
 Input → LR4 LPF ┤                                                                                          ├→ (+) → Output
-                 └─────────────────────── dry (mids/highs sin tocar) ─────────────────────────────────────┘
+                 └─────────────────────── dry (mids/highs untouched) ─────────────────────────────────────┘
 ```
 
 ## ✨ Crystalizer
 
-Enhancer de transientes a 2 bandas:
+2-band transient enhancer:
 
-- **Crossover LR2 12 dB/oct** a 60 Hz y 3000 Hz
-- **Detección de pico por 2ª derivada** por banda: `d²[n] = x[n] − 2·x[n-1] + x[n-2]`
-- **Enhancement**: `output = band + intensity × d²` (sin pre-ringing)
-- **Intensity Mid** (−24 a +24 dB) para 60–3000 Hz
-- **Intensity High** (−24 a +24 dB) para 3000 Hz+
-- **Mix** (0–100%) wet/dry
+- **2-band Linkwitz-Riley 12 dB/oct crossover** at 60 Hz and 3000 Hz
+- **Second-derivative peak detection** per band: `d²[n] = x[n] − 2·x[n-1] + x[n-2]`
+- **Enhancement**: `output = band + intensity × d²` (no pre-ringing)
+- **Intensity Mid** (−24 to +24 dB) for 60–3000 Hz
+- **Intensity High** (−24 to +24 dB) for 3000 Hz+
+- **Mix** (0–100%) wet/dry blend
 - **Output gain** (±12 dB)
-- **Granularidad 0.1 dB** en todos los controles
+- **0.1 dB granularity** on all controls
 
 ### Signal flow
 
 ```
 Input → [LPF@60] → [LPF@3000] → Band Mid (60-3000) → enhancer → ┐
-                 → [HPF@3000] → Band High (3000+) → enhancer → ├→ Mix → Out
+                 → [HPF@3000] → Band High (3000+)  → enhancer → ├→ Mix → Out
 ```
 
 ## 🌬️ Air Exciter
 
-Generador de armónicos pares bandlimited para agudos — añade "aire" y detalle sin aspereza. Solo la banda de agudos aislada se procesa non-linear, así los armónicos se quedan en el treble en vez de intermodular todo el espectro.
+Bandlimited even-harmonic generator for the treble — adds "air" and perceived detail without harshness. Only the isolated treble band is driven non-linear, so the generated harmonics stay in the treble instead of intermodulating the whole spectrum.
 
-- **Cutoff** (2000–8000 Hz): LR4 high-pass (-24 dB/oct) aislando la banda a excitar.
-- **Intensity** (0–100%): cuánto se mezcla de vuelta.
+- **Cutoff** (2000–8000 Hz): LR4 high-pass (-24 dB/oct) isolating the band to be excited.
+- **Intensity** (0–100%): amount of generated harmonics mixed back in.
 
-Usa los mismos bloques MaxxBass que el Harmonics del bassboost (rectify + DC block 1-pole) sobre la señal high-passed.
+Uses the same MaxxBass-style building blocks as the bassboost Harmonics knob (full-wave rectify + 1-pole DC block), applied to the high-passed signal.
 
 ### Signal flow
 
@@ -70,10 +70,10 @@ Input ----------------------------------------------------------┘
 
 ## 🎚️ Stereo Widener
 
-Control de width mid/side con graves controlados.
+Mid/side width control with a tamed low end.
 
-- **Width** (0–200%): escala la señal side. 100% transparente, 0% mono, >100% ensancha.
-- **Crossover** (50–500 Hz): el side por debajo de esta freq nunca supera unity width → graves mono-compatibles por más que abras.
+- **Width** (0–200%): scales the side signal. 100% is transparent; 0% is mono; >100% widens.
+- **Crossover** (50–500 Hz): side content below this frequency never exceeds unity width, so the bass stays mono-compatible no matter how wide you go.
 
 ### Signal flow
 
@@ -84,29 +84,29 @@ L,R → M/S decode → side → [LPF@crossover] → low side (≤100% width) ┐
 
 ## 🎛️ Mini Reverb
 
-Reverb tipo freeverb compacto: dos bancos de 4 comb filters con damping (un banco por canal estéreo) alimentados desde un mix mono.
+Compact freeverb-style room simulator: two banks of four damped comb filters with detuned delay lengths (one bank per stereo channel) fed from a mono mix.
 
-- **Room Size** (0–100%): feedback — de slap corto a hall largo.
-- **Damping** (0–100%): low-pass 1-pole en cada loop — qué tan rápido pierde agudos la cola.
-- **Wet Mix** (0–100%): wet/dry.
+- **Room Size** (0–100%): feedback amount — short slap to long hall-like decay.
+- **Damping** (0–100%): one-pole low-pass in each feedback loop — how quickly the tail loses treble.
+- **Wet Mix** (0–100%): wet/dry blend.
 
-Los buffers de delay se alocan del core pool solo mientras el efecto está activo (igual que surround), así que no gastan RAM apagado.
+Delay buffers are allocated from the core pool only while the effect is enabled (same pattern as surround), so no RAM is used when it's off.
 
 ## 📱 Usage
 
-En el dispositivo: **Settings → Sound Settings → Bassboost / Crystalizer / Air Exciter / Stereo Widener / Reverb**
+On device: **Settings → Sound Settings → Bassboost / Crystalizer / Air Exciter / Stereo Widener / Reverb**
 
 ### Bassboost menu
 - **Enable**
 - **Crossover** (40–500 Hz, step 10)
-- **Sub Bass Gain** (0–24 dB, step 0.5) — ganancia añadida al sub-bass.
-- **Harmonics** (0–100%, step 5) — mix de armónicos superiores para perceived bass.
+- **Sub Bass Gain** (0–24 dB, step 0.5) — gain added to the sub-bass frequencies.
+- **Harmonics** (0–100%, step 5) — psychoacoustic upper harmonics mix to enhance perceived bass on small speakers.
 - **Output Gain** (±12 dB, step 0.5)
 
 ### Crystalizer menu
 - **Enable**
-- **Intensity Mid** (−24 a +24 dB, step 0.1)
-- **Intensity High** (−24 a +24 dB, step 0.1)
+- **Intensity Mid** (−24 to +24 dB, step 0.1)
+- **Intensity High** (−24 to +24 dB, step 0.1)
 - **Mix** (0–100%, step 1)
 - **Output Gain** (±12 dB, step 0.1)
 
@@ -126,7 +126,7 @@ En el dispositivo: **Settings → Sound Settings → Bassboost / Crystalizer / A
 - **Damping** (0–100%, step 5)
 - **Wet Mix** (0–100%, step 5)
 
-### 🎯 Recommended settings para sub-bass en drivers chicos
+### 🎯 Recommended settings for sub-bass on small drivers
 
 ```
 Bassboost:
@@ -137,7 +137,7 @@ Bassboost:
   Output Gain: 0 dB
 ```
 
-### 🎯 Puntos de partida para los efectos nuevos
+### 🎯 Recommended starting points for the new effects
 
 ```
 Air Exciter:      Enable ON, Cutoff 3500 Hz, Intensity 30%
@@ -159,7 +159,7 @@ apps/root_menu.c, tree.c, gui/wps.c — Go to Album navigation wiring
 apps/timed_brightness.c/.h          — Time-based auto brightness controller
 apps/menus/display_menu.c           — Timed Brightness submenu
 apps/plugin.h/.c                    — Plugin API: backlight_set_on_button_hold (API v285)
-apps/plugins/lrcplayer.c            — Backlight Always On respeta HOLD
+apps/plugins/lrcplayer.c            — Backlight Always On honors HOLD
 lib/rbcodec/SOURCES                 — bassboost.c + crystalizer.c + exciter.c + widener.c + reverb.c
 lib/rbcodec/dsp/dsp_proc_database.h — BASSBOOST + CRYSTALIZER + EXCITER + WIDENER + REVERB registered
 lib/rbcodec/dsp/dsp_proc_settings.h — Includes all effect headers
@@ -180,61 +180,61 @@ mkdir build-ipod6g && cd build-ipod6g
 make -j$(nproc)
 ```
 
-Copiar `rockbox.ipod` a `/.rockbox/` en el iPod. También copiar `build-ipod6g/apps/lang/english.lng` a `/.rockbox/langs/`.
+Copy `rockbox.ipod` to `/.rockbox/` on the iPod. Also copy `build-ipod6g/apps/lang/english.lng` to `/.rockbox/langs/`.
 
-**Nota:** Después de cambios estructurales, borrá `/.rockbox/config.cfg` o reseteá settings para evitar "Incompatible Version".
+**Note:** After structural changes, delete `/.rockbox/config.cfg` or reset settings to avoid "Incompatible Version" errors.
 
 ## 🧮 ARM fixed-point notes
 
-Toda la matemática DSP es **fixed-point integer** (S7.24 / S15.16 / Q31) para ARM926EJ-S. Biquads, gain tables, envelope followers y saturación usan `FRACMUL` / `fp_factor` / `fp_sincos`.
+All DSP math is **fixed-point integer** (S7.24 / S15.16 / Q31) targeting ARM926EJ-S. Biquads, gain tables, envelope followers, and saturation use `FRACMUL` / `fp_factor` / `fp_sincos`.
 
-- **Bassboost Peak Limiter**: gain scaler basado en envelope — ataque instantáneo, release exponencial 1-pole (~100 ms), canales linked. `env >= |sample|` siempre, así la salida nunca supera el threshold (`7/8 · 2^frac_bits`). Como el limiting es gain lineal, no añade armónicos en graves sostenidos. Reemplaza un waveshaper memoryless anterior (`soft_over = headroom - (headroom * headroom) / (headroom + over)`) que aplanaba cada ciclo de un bass ya pesado y sonaba a clipping. **Ahora el limiter vive en la rama wet**, no en la mezcla completa, así que los picos de graves no duckean medios/agudos. Los demás stages que añaden gain (crystalizer, exciter, widener, reverb) siguen usando el soft clipper, con threshold y ceiling trackeando el full scale real del formato (`2^frac_bits`, i.e. `2^27` para 16-bit).
-- **Psychoacoustic Harmonics**: rectificación full-wave `abs(x)` + DC blocker 1-pole para generar armónicos pares superiores.
-- **Crystalizer 2-band**: serie LR2 — LP@60 → LP@3000 = banda 0, resto = banda 1
-- **Reverb**: tunings de comb freeverb escalados por output rate; feedback seteado por Room Size, loop damped 1-pole; buffers `core_alloc`'d solo cuando está habilitado.
+- **Bassboost Peak Limiter**: envelope-based gain scaler — instant attack, one-pole exponential release (~100 ms), channels linked. `env >= |sample|` always holds, so the output can never exceed the threshold (`7/8 · 2^frac_bits`); because the limiting is linear gain, it adds no harmonics on sustained bass. This replaces an earlier memoryless waveshaper (`soft_over = headroom - (headroom * headroom) / (headroom + over)`) which flattened every cycle of an already-heavy bass waveform and sounded like clipping. **The limiter now lives on the wet branch**, not the full mix, so bass peaks no longer duck mids/highs. The other gain-adding stages (crystalizer, exciter, widener, reverb) still use the soft clipper, with threshold and ceiling tracking the format's real full scale (`2^frac_bits`, i.e. `2^27` for 16-bit sources).
+- **Psychoacoustic Harmonics**: full-wave rectification `abs(x)` followed by a 1-pole DC blocker to generate even-order upper harmonics.
+- **Crystalizer 2-band**: LR2 series — LP@60 → LP@3000 = band 0, remainder = band 1
+- **Reverb**: freeverb comb tunings scaled by output rate; feedback set by Room Size, one-pole damped loop; delay buffers `core_alloc`'d only while enabled.
 
 ## 🎁 QoL features
 
 ### 📀 Go to Album (WPS context menu)
 
-Item nuevo en el context menu del WPS (botón Select en iPod mientras reproducís):
+New item in the WPS context menu (Select button on iPod while playing):
 
-- **Go to Album** — salta directo al álbum del track actual en el Database browser
-- Usa tagcache: localiza el menu `"same"` (`%menu_start "same"` en `tagnavi.config`), busca su entrada `Album` y la abre con el álbum del track preseleccionado
-- Fallback a la carpeta del track en el file browser cuando el Database no está disponible (tagcache no listo o track sin tag de álbum)
+- **Go to Album** — jumps straight to the current track's album in the Database browser
+- Uses tagcache: locates the `"same"` menu (`%menu_start "same"` in `tagnavi.config`), finds its `Album` entry and opens it with the playing track's album preselected
+- Falls back to the track's folder in the file browser when the Database isn't available (tagcache not ready or track has no album tag)
 
-Implementación: `apps/onplay.c` — `go_to_album()` + `go_to_album_item`; `apps/tagtree.c` — `tagtree_goto_album()`; cableado a través de `apps/root_menu.c`, `apps/tree.c` y `apps/gui/wps.c`.
+Implementation: `apps/onplay.c` — `go_to_album()` + `go_to_album_item`; `apps/tagtree.c` — `tagtree_goto_album()`; wired through `apps/root_menu.c`, `apps/tree.c` and `apps/gui/wps.c`.
 
 ### 🌗 Time-based Auto Brightness
 
-Brillo day/night programado bajo **Settings → Display Settings → Timed Brightness** (targets con brillo ajustable y RTC, ej. iPod 6G):
+Scheduled day/night backlight levels under **Settings → Display Settings → Timed Brightness** (targets with adjustable backlight brightness and an RTC, e.g. iPod 6G):
 
-- **Enable** (default off) — al apagarlo restaura el brillo manual
-- **Day Time** (default 07:00) / **Night Time** (default 23:00) — seteados via time picker compartido, misma UI que la alarma
-- **Day Brightness** (default max, 63 en iPod 6G) / **Night Brightness** (default min, 1)
+- **Enable** (default off) — turning it off restores the manual brightness setting
+- **Day Time** (default 07:00) / **Night Time** (default 23:00) — set via the shared time picker screen, same UI as the alarm
+- **Day Brightness** (default max, 63 on iPod 6G) / **Night Brightness** (default min, 1)
 
-El controller aplica el slot activo (el cuya trigger time pasó más recientemente) y arma un único timeout self-rearming para la próxima transición — sin polling por minuto, y el callback es ISR-safe. Si el RTC no tiene hora válida todavía, cae a brillo manual y reintenta cuando se aplican settings.
+The controller applies whichever slot is currently active (the one whose trigger time most recently passed) and arms a single self-rearming timeout for the next transition — no per-minute polling, and the callback is ISR-safe. If the RTC has no valid time yet it falls back to manual brightness and retries when settings are applied.
 
-Implementación: `apps/timed_brightness.c/.h`, menu items en `apps/menus/display_menu.c`, settings en `apps/settings_list.c`.
+Implementation: `apps/timed_brightness.c/.h`, menu items in `apps/menus/display_menu.c`, settings in `apps/settings_list.c`.
 
-### 🎤 Lrcplayer: Backlight Always On respeta HOLD
+### 🎤 Lrcplayer: Backlight Always On honors HOLD
 
-Cuando estás en `Lrcplayer` mostrando lyrics y activás **Backlight Always On** (`Lrcplayer → Menu → Theme Settings → Backlight Always On`), la pantalla **no se apaga** aunque pongas el switch de HOLD. 🎉
+When you're in `Lrcplayer` showing lyrics and **Backlight Always On** is enabled (`Lrcplayer → Menu → Theme Settings → Backlight Always On`), the screen **stays on** even if you flip the HOLD switch. 🎉
 
-- Reutiliza la setting existente — no hay opción nueva.
-- Solo aplica mientras Lrcplayer está activo; al salir, el comportamiento global de HOLD/backlight vuelve a la normalidad.
-- Internamente fuerza `backlight_on_button_hold = 2` (always on under hold) al entrar y restaura el valor original al salir.
+- Reuses the existing setting — no new option.
+- Only applies while Lrcplayer is active; on exit, the global HOLD/backlight behavior goes back to normal.
+- Internally forces `backlight_on_button_hold = 2` (always on under hold) on entry and restores the original value on exit.
 
-Implementación: `apps/plugins/lrcplayer.c` (`lrc_main`), API nueva `backlight_set_on_button_hold` en `apps/plugin.h`/`apps/plugin.c` (PLUGIN_API_VERSION 285).
+Implementation: `apps/plugins/lrcplayer.c` (`lrc_main`), new API `backlight_set_on_button_hold` in `apps/plugin.h`/`apps/plugin.c` (PLUGIN_API_VERSION 285).
 
 ## 🎧 Inline Earphone Remote (iPod 6G)
 
-Play/pause y volumen en los Apple earphones inline (remote del jack) se decodifican via el controller I2C "Mikey" (bus 0, address 0x72):
+Play/pause and volume buttons on Apple inline earphones (headphone jack remote) are decoded via the "Mikey" I2C controller (bus 0, address 0x72):
 
-- **Center button** — play/pause/resume en cualquier pantalla (reportado como multimedia key, como el OF)
-- **Volume +/−** — volumen up/down, también en menús y file browser
-- Sigue funcionando con hold switch on, como el OF
+- **Center button** — play/pause/resume on every screen (reported as a multimedia key, like the OF)
+- **Volume +/−** — volume up/down, also works in menus and the file browser
+- Keeps working with the hold switch on, like the OF
 
-**Requisitos:** un 6G con chip "Mikey" (modelos late-2008/2009 120/160GB; los early-2007 80/160GB no lo tienen — checkeá `Settings → Debug → View HW Info`, la línea `mikey remote ctrl` debe decir `ok` con auriculares plugueados), y earphones Apple-protocol para los botones de volumen (center play/pause puede dispararse también en remotes que cortocircuitan la línea de mic).
+**Requirements:** a 6G unit with the "Mikey" chip (late-2008/2009 120/160GB models; the early-2007 80/160GB models lack it — check `Settings → Debug → View HW Info`, line `mikey remote ctrl` must show `ok` with headphones plugged in), and Apple-protocol earphones for the volume buttons (center play/pause may also trigger on remotes that short the mic line).
 
-Crédito: [Hemant Kumar](https://github.com/hemant6488) — [hemant6488/rockbox, ipod6g-mikey-v1](https://github.com/hemant6488/rockbox/releases/tag/ipod6g-mikey-v1); el patch fue mergeado a Rockbox upstream (commit `b217a55059`) y está incluido en este fork.
+Credit: [Hemant Kumar](https://github.com/hemant6488) — [hemant6488/rockbox, ipod6g-mikey-v1](https://github.com/hemant6488/rockbox/releases/tag/ipod6g-mikey-v1); the patch was merged into official Rockbox upstream (commit `b217a55059`) and is included in this fork.
