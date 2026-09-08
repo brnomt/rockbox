@@ -1747,6 +1747,8 @@ static int display_lrc_line(struct lrc_line *lrc_line, int ypos, int i)
                 c = word_count;
                 w = word_width;
             }
+            if (c <= 0 || w <= 0)
+                break;
             if (prefs.autoscroll)
             {
                 if (elapsed <= 0)
