@@ -102,300 +102,6 @@
   </voice>
 </phrase>
 <phrase>
-  id: LANG_BASSBOOST
-  desc: in sound settings
-  user: core
-  <source>
-    *: "Bass Boost"
-  </source>
-  <dest>
-    *: "Bass Boost"
-  </dest>
-  <voice>
-    *: "Bass Boost"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_BASSBOOST_ENABLE
-  desc: in sound settings
-  user: core
-  <source>
-    *: "Enable"
-  </source>
-  <dest>
-    *: "Enable"
-  </dest>
-  <voice>
-    *: "Enable"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_BASSBOOST_CROSSOVER
-  desc: in sound settings
-  user: core
-  <source>
-    *: "Crossover"
-  </source>
-  <dest>
-    *: "Crossover"
-  </dest>
-  <voice>
-    *: "Crossover"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_BASSBOOST_THRESHOLD
-  desc: deprecated
-  user: core
-  <source>
-    *: ""
-  </source>
-  <dest>
-    *: ""
-  </dest>
-  <voice>
-    *: ""
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_BASSBOOST_RATIO
-  desc: deprecated
-  user: core
-  <source>
-    *: ""
-  </source>
-  <dest>
-    *: ""
-  </dest>
-  <voice>
-    *: ""
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_BASSBOOST_ROFF
-  desc: in sound settings
-  user: core
-  <source>
-    *: "off"
-  </source>
-  <dest>
-    *: "off"
-  </dest>
-  <voice>
-    *: "off"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_BASSBOOST_R2
-  desc: in sound settings
-  user: core
-  <source>
-    *: "2:1"
-  </source>
-  <dest>
-    *: "2:1"
-  </dest>
-  <voice>
-    *: "2 to 1"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_BASSBOOST_R4
-  desc: in sound settings
-  user: core
-  <source>
-    *: "4:1"
-  </source>
-  <dest>
-    *: "4:1"
-  </dest>
-  <voice>
-    *: "4 to 1"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_BASSBOOST_R6
-  desc: in sound settings
-  user: core
-  <source>
-    *: "6:1"
-  </source>
-  <dest>
-    *: "6:1"
-  </dest>
-  <voice>
-    *: "6 to 1"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_BASSBOOST_R10
-  desc: in sound settings
-  user: core
-  <source>
-    *: "10:1"
-  </source>
-  <dest>
-    *: "10:1"
-  </dest>
-  <voice>
-    *: "10 to 1"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_BASSBOOST_RLIMIT
-  desc: in sound settings
-  user: core
-  <source>
-    *: "limit"
-  </source>
-  <dest>
-    *: "limit"
-  </dest>
-  <voice>
-    *: "limit"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_BASSBOOST_ATTACK
-  desc: in sound settings
-  user: core
-  <source>
-    *: "Attack"
-  </source>
-  <dest>
-    *: "Attack"
-  </dest>
-  <voice>
-    *: "Attack"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_BASSBOOST_RELEASE
-  desc: in sound settings
-  user: core
-  <source>
-    *: "Release"
-  </source>
-  <dest>
-    *: "Release"
-  </dest>
-  <voice>
-    *: "Release"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_BASSBOOST_UP_ATTACK
-  desc: bassboost menu - upward envelope attack time
-  user: core
-  <source>
-    *: "Up Attack"
-  </source>
-  <dest>
-    *: "Up Attack"
-  </dest>
-  <voice>
-    *: "Up Attack"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_BASSBOOST_UP_RELEASE
-  desc: bassboost menu - upward envelope release time
-  user: core
-  <source>
-    *: "Up Release"
-  </source>
-  <dest>
-    *: "Up Release"
-  </dest>
-  <voice>
-    *: "Up Release"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_BASSBOOST_SUB_BASS_GAIN
-  desc: in sound settings
-  user: core
-  <source>
-    *: "Sub Bass Gain"
-  </source>
-  <dest>
-    *: "Sub Bass Gain"
-  </dest>
-  <voice>
-    *: "Sub Bass Gain"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_BASSBOOST_MAKEUP
-  desc: in sound settings
-  user: core
-  <source>
-    *: "Makeup Gain"
-  </source>
-  <dest>
-    *: "Makeup Gain"
-  </dest>
-  <voice>
-    *: "Makeup Gain"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_BASSBOOST_MIX
-  desc: in sound settings
-  user: core
-  <source>
-    *: "Mix"
-  </source>
-  <dest>
-    *: "Mix"
-  </dest>
-  <voice>
-    *: "Mix"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_BASSBOOST_SPREAD
-  desc: bassboost menu - harmonic spread to full band
-  user: core
-  <source>
-    *: "Harmonic Spread"
-  </source>
-  <dest>
-    *: "Harmonic Spread"
-  </dest>
-  <voice>
-    *: "Harmonic Spread"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_BASSBOOST_SUB
-  desc: bassboost menu - sub-harmonic octaver
-  user: core
-  <source>
-    *: "Sub Octave"
-  </source>
-  <dest>
-    *: "Sub Octave"
-  </dest>
-  <voice>
-    *: "Sub Octave"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_BASSBOOST_OUTPUT
-  desc: in sound settings
-  user: core
-  <source>
-    *: "Output Gain"
-  </source>
-  <dest>
-    *: "Output Gain"
-  </dest>
-  <voice>
-    *: "Output Gain"
-  </voice>
-</phrase>
-<phrase>
   id: LANG_SET_BOOL_YES
   desc: bool true representation
   user: core
@@ -17563,174 +17269,6 @@
   </voice>
 </phrase>
 <phrase>
-  id: LANG_BASSBOOST_RATIO_DOWN
-  desc: bassboost menu - downward compression ratio
-  user: core
-  <source>
-    *: "Ratio Down"
-  </source>
-  <dest>
-    *: "Ratio Down"
-  </dest>
-  <voice>
-    *: "Ratio Down"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_BASSBOOST_RATIO_UP
-  desc: bassboost menu - upward expansion ratio
-  user: core
-  <source>
-    *: "Ratio Up"
-  </source>
-  <dest>
-    *: "Ratio Up"
-  </dest>
-  <voice>
-    *: "Ratio Up"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_BASSBOOST_RU_OFF
-  desc: bassboost ratio up choice
-  user: core
-  <source>
-    *: "off"
-  </source>
-  <dest>
-    *: "off"
-  </dest>
-  <voice>
-    *: "off"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_BASSBOOST_RU_10
-  desc: bassboost ratio up choice
-  user: core
-  <source>
-    *: "0.10:1"
-  </source>
-  <dest>
-    *: "0.10:1"
-  </dest>
-  <voice>
-    *: "0.1 to 1"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_BASSBOOST_RU_15
-  desc: bassboost ratio up choice
-  user: core
-  <source>
-    *: "0.15:1"
-  </source>
-  <dest>
-    *: "0.15:1"
-  </dest>
-  <voice>
-    *: "0.15 to 1"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_BASSBOOST_RU_25
-  desc: bassboost ratio up choice
-  user: core
-  <source>
-    *: "0.25:1"
-  </source>
-  <dest>
-    *: "0.25:1"
-  </dest>
-  <voice>
-    *: "0.25 to 1"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_BASSBOOST_RU_50
-  desc: bassboost ratio up choice
-  user: core
-  <source>
-    *: "0.5:1"
-  </source>
-  <dest>
-    *: "0.5:1"
-  </dest>
-  <voice>
-    *: "0.5 to 1"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_BASSBOOST_RU_75
-  desc: bassboost ratio up choice
-  user: core
-  <source>
-    *: "0.75:1"
-  </source>
-  <dest>
-    *: "0.75:1"
-  </dest>
-  <voice>
-    *: "0.75 to 1"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_BASSBOOST_PREGAIN
-  desc: bassboost menu - input attenuation before processing
-  user: core
-  <source>
-    *: "Pre Gain"
-  </source>
-  <dest>
-    *: "Pre Gain"
-  </dest>
-  <voice>
-    *: "Pre Gain"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_BASSBOOST_KNEE
-  desc: bassboost menu - knee width
-  user: core
-  <source>
-    *: "Knee"
-  </source>
-  <dest>
-    *: "Knee"
-  </dest>
-  <voice>
-    *: "Knee"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_BASSBOOST_DRIVE
-  desc: bassboost menu - saturation drive amount
-  user: core
-  <source>
-    *: "Drive"
-  </source>
-  <dest>
-    *: "Drive"
-  </dest>
-  <voice>
-    *: "Drive"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_BASSBOOST_HARMONICS
-  desc: bassboost menu
-  user: core
-  <source>
-    *: "Harmonics"
-  </source>
-  <dest>
-    *: "Harmonics"
-  </dest>
-  <voice>
-    *: "Harmonics"
-  </voice>
-</phrase>
-<phrase>
   id: LANG_CRYSTALIZER
   desc: in sound settings
   user: core
@@ -18056,5 +17594,103 @@
   <voice>
     *: none
     touchscreen: "Touchscreen Flick Shortcuts"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BASSBOOST
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Bass Boost"
+  </source>
+  <dest>
+    *: "Bass Boost"
+  </dest>
+  <voice>
+    *: "Bass Boost"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BASSBOOST_ENABLE
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Enable"
+  </source>
+  <dest>
+    *: "Enable"
+  </dest>
+  <voice>
+    *: "Enable"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BASSBOOST_CROSSOVER
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Crossover"
+  </source>
+  <dest>
+    *: "Crossover"
+  </dest>
+  <voice>
+    *: "Crossover"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BASSBOOST_SUB_BASS_GAIN
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Sub Bass Gain"
+  </source>
+  <dest>
+    *: "Sub Bass Gain"
+  </dest>
+  <voice>
+    *: "Sub Bass Gain"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BASSBOOST_OUTPUT
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Output Gain"
+  </source>
+  <dest>
+    *: "Output Gain"
+  </dest>
+  <voice>
+    *: "Output Gain"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BASSBOOST_HARMONICS
+  desc: bassboost menu
+  user: core
+  <source>
+    *: "Harmonics"
+  </source>
+  <dest>
+    *: "Harmonics"
+  </dest>
+  <voice>
+    *: "Harmonics"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_INPUT_GAIN
+  desc: in sound settings, trim applied before the whole DSP chain
+  user: core
+  <source>
+    *: "Input Gain"
+  </source>
+  <dest>
+    *: "Input Gain"
+  </dest>
+  <voice>
+    *: "Input Gain"
   </voice>
 </phrase>

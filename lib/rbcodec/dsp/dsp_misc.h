@@ -53,6 +53,9 @@ struct dsp_replay_gains
 
 void dsp_replaygain_set_settings(const struct replaygain_settings *settings);
 
+/* Global input trim in 0.1 dB, applied by the PGA ahead of every stage */
+void dsp_set_input_gain(int gain);
+
 #ifdef HAVE_PITCHCONTROL
 void dsp_set_pitch(int32_t pitch);
 int32_t dsp_get_pitch(void);

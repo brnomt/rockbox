@@ -103,6 +103,17 @@ void dsp_replaygain_set_settings(const struct replaygain_settings *settings)
 }
 
 
+/** Input gain **/
+
+/* Global trim in 0.1 dB, folded into the PGA (first stage) together with
+ * replaygain / EQ precut, so it costs nothing extra per sample. */
+void dsp_set_input_gain(int gain)
+{
+    pga_set_gain(PGA_INPUT_GAIN, get_replaygain_int(gain * 10));
+    pga_enable_gain(PGA_INPUT_GAIN, gain != 0);
+}
+
+
 /** Pitch Settings **/
 
 #ifdef HAVE_PITCHCONTROL

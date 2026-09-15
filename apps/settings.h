@@ -853,6 +853,7 @@ struct user_settings
 #endif
 
     struct compressor_settings compressor_settings;
+    int input_gain;             /* 0.1 dB, PGA trim ahead of the whole chain */
     struct bassboost_settings bassboost_settings;
     struct crystalizer_settings crystalizer_settings;
     struct exciter_settings exciter_settings;

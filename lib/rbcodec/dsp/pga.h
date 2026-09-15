@@ -27,6 +27,7 @@ enum pga_gain_ids
 {
     PGA_EQ_PRECUT = 0,
     PGA_REPLAYGAIN,
+    PGA_INPUT_GAIN,  /* user trim ahead of the whole chain */
     PGA_NUM_GAINS,
 };
 

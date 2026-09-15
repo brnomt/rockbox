@@ -88,6 +88,7 @@ static int volume_limit_callback(int action,
 /*    SOUND MENU                   */
 MENUITEM_SETTING(volume, &global_status.volume, NULL);
 MENUITEM_SETTING(volume_limit, &global_settings.volume_limit, volume_limit_callback);
+MENUITEM_SETTING(input_gain, &global_settings.input_gain, NULL);
 #ifdef AUDIOHW_HAVE_BASS
 MENUITEM_SETTING(bass, &global_settings.bass,
 #ifdef HAVE_SW_TONE_CONTROLS
@@ -364,6 +365,7 @@ MAKE_MENU(sound_settings, ID2P(LANG_SOUND_SETTINGS), NULL, Icon_Audio,
           ,&timestretch_enabled
 #endif
           ,&compressor_menu
+          ,&input_gain
           ,&bassboost_menu
           ,&crystalizer_menu
           ,&exciter_menu
