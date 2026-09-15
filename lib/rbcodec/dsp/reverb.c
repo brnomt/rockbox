@@ -46,10 +46,11 @@
 #define UNITY            (1L << 24)
 #define NUM_LINES        8
 #define LINES_PER_SIDE   4
-/* Largest tuned length scaled to ~96 kHz; buffers are fixed size so a
- * higher rate simply shortens the room instead of overflowing. */
-#define MAX_LEN          3072
+/* Largest tuned length scaled to the target's maximum output rate (48 kHz
+ * on iPod 6G -> 48 KB instead of 96 KB); reverb_update_lengths() clamps to
+ * this so an unexpected rate shortens the room instead of overflowing. */
 #define BASE_RATE        44100
+#define MAX_LEN          (1379 * DSP_OUT_MAX_HZ / BASE_RATE + 1)
 
 /* Freeverb-style comb tunings at 44.1 kHz: first four feed the left
  * output, last four the right (detuned for stereo spread). */
@@ -107,7 +108,12 @@ static FORCE_INLINE int32_t comb_step(int32_t *buf, int line, int32_t input)
     int64_t filt = ((int64_t)out * damp2 + (int64_t)lp_state[line] * damp1) >> 24;
     lp_state[line] = (int32_t)filt;
 
-    buf[p] = input + (int32_t)((filt * feedback) >> 24);
+    /* Resonant gain reaches 1/(1-0.95) = 20x at room 100; saturate the
+     * stored state rather than let it wrap into a recirculating burst. */
+    int64_t nv = (int64_t)input + ((filt * feedback) >> 24);
+    if (nv > INT32_MAX)      nv = INT32_MAX;
+    else if (nv < INT32_MIN) nv = INT32_MIN;
+    buf[p] = (int32_t)nv;
 
     if (++p >= lengths[line])
         p = 0;
@@ -133,20 +139,19 @@ static void reverb_process(struct dsp_proc_entry *this,
     if (lines == NULL)
         return;
 
-    /* Full scale is 2^frac_bits; the soft limiter must track it (see
-     * bassboost.c for the full rationale). */
-    const int frac_bits = buf->format.frac_bits;
-    const int64_t max_val  = ((int64_t)1 << frac_bits) - 1;
-    const int64_t thresh   = (max_val * 7) >> 3;   /* 7/8 FS, ~ -1.9 dBFS */
-    const int64_t headroom = max_val - thresh;
+    /* Full scale is 2^frac_bits (27 for 16-bit sources). */
+    const int64_t max_val = ((int64_t)1 << buf->format.frac_bits) - 1;
 
     for (int n = 0; n < count; n++)
     {
         int32_t L = out0[n];
         int32_t R = (num_chan > 1) ? out1[n] : L;
 
-        /* Mono drive signal, attenuated for feedback-loop headroom */
-        int32_t input = (int32_t)(((int64_t)L + R) >> 2);
+        /* Mono drive signal, attenuated for feedback-loop headroom: with
+         * 28/29 frac-bit sources (MP3, FLAC, WMA) a >>2 drive at 20x comb
+         * gain exceeds int32; >>4 and summing (not averaging) the four lines
+         * per side gives the same wet level with 2 more bits of margin. */
+        int32_t input = (int32_t)(((int64_t)L + R) >> 4);
 
         int64_t wetL = 0, wetR = 0;
 
@@ -159,35 +164,22 @@ static void reverb_process(struct dsp_proc_entry *this,
                 wetR += out;
         }
 
-        /* Average the four lines per side and apply the wet gain */
-        wetL = ((wetL >> 2) * wet_gain) >> 24;
-        wetR = ((wetR >> 2) * wet_gain) >> 24;
+        wetL = (wetL * wet_gain) >> 24;
+        wetR = (wetR * wet_gain) >> 24;
 
-        int64_t vals[2] = { (int64_t)L + wetL, (int64_t)R + wetR };
+        /* Clamp in 64-bit before narrowing; peak control belongs to the
+         * compressor stage (no per-sample divide, no knee below FS). */
+        int64_t newL = (int64_t)L + wetL;
+        if (newL > max_val)       newL = max_val;
+        else if (newL < -max_val) newL = -max_val;
+        out0[n] = (int32_t)newL;
 
-        /* Soft limiter, per channel: linear up to 7/8 FS, asymptotic
-         * knee above; output never hard-clips. */
-        for (int ch = 0; ch < num_chan && ch < 2; ch++)
+        if (num_chan > 1)
         {
-            int64_t g = vals[ch];
-            int64_t abs_g = (g < 0) ? -g : g;
-            int32_t result;
-
-            if (abs_g <= thresh)
-            {
-                result = (int32_t)g;
-            }
-            else
-            {
-                int64_t over = abs_g - thresh;
-                int64_t soft_over = headroom - (headroom * headroom) / (headroom + over);
-                int64_t y = thresh + soft_over;
-                if (y > max_val) y = max_val;
-                result = (int32_t)((g < 0) ? -y : y);
-            }
-
-            if (ch == 0) out0[n] = result;
-            else         out1[n] = result;
+            int64_t newR = (int64_t)R + wetR;
+            if (newR > max_val)       newR = max_val;
+            else if (newR < -max_val) newR = -max_val;
+            out1[n] = (int32_t)newR;
         }
     }
 }
@@ -213,7 +205,8 @@ static void reverb_update_lengths(unsigned long fs)
 static bool reverb_update(struct dsp_config *dsp,
                           const struct reverb_settings *settings)
 {
-    if (!settings->enabled)
+    /* No wet signal means pass-through: don't run (or allocate) at all. */
+    if (!settings->enabled || settings->wet_mix <= 0)
         return false;
 
     unsigned long fs = dsp_get_output_frequency(dsp);
@@ -263,10 +256,10 @@ static intptr_t reverb_configure(struct dsp_proc_entry *this,
         retval = reverb_buffer_alloc();
         if (retval < 0)
             break;
+        /* Settings/lengths were just computed by dsp_set_reverb(). */
         this->process = reverb_process;
         reverb_flush();
         retval = 0;
-        reverb_update(dsp, &curr_set);
         break;
 
     case DSP_PROC_CLOSE:
@@ -278,8 +271,8 @@ static intptr_t reverb_configure(struct dsp_proc_entry *this,
         reverb_flush();
         break;
 
+    /* Only the output rate matters (resampler runs before this stage). */
     case DSP_SET_OUT_FREQUENCY:
-    case DSP_SET_FREQUENCY:
         reverb_update(dsp, &curr_set);
         break;
     }

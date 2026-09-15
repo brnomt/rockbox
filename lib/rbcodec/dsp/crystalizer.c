@@ -8,11 +8,11 @@
  * Crystalizer - fixed-point multiband transient enhancer
  *
  * Signal flow:
- *   Input → LR2 crossover (60Hz / 3000Hz) → 2nd-derivative enhancement
+ *   Input → LR4 crossover (3000 Hz) → 2nd-derivative enhancement
  *       → mix wet/dry → output gain
  *
  * Bands:
- *   Low:   60 - 3000 Hz
+ *   Mid:   0 - 3000 Hz
  *   High:  3000+ Hz
  *
  * For each band, the backward-difference second derivative is computed
@@ -53,7 +53,9 @@ static int32_t wet_mix, dry_mix = UNITY;
 
 static int32_t intensity_linear[NUM_BANDS];
 
-static struct dsp_filter lpf_low[2];
+/* Single LR4 split at 3 kHz. A former 60 Hz split was dead work: its low
+ * output was summed straight back into the mid band, so it cost 4 of the
+ * 8 biquads per sample/channel and changed nothing. */
 static struct dsp_filter lpf_mid[2];
 
 static int32_t band_x1[NUM_BANDS][MAX_CH];
@@ -116,12 +118,8 @@ static void butterworth_coefs(unsigned long cutoff_phase, bool highpass,
     f->shift = 8;
 }
 
-static void setup_filters(int low_hz, int mid_hz, unsigned long fs)
+static void setup_filters(int mid_hz, unsigned long fs)
 {
-    unsigned long phase_low = fp_div(low_hz, fs, 32);
-    butterworth_coefs(phase_low, false, &lpf_low[0]);
-    butterworth_coefs(phase_low, false, &lpf_low[1]);
-
     unsigned long phase_mid = fp_div(mid_hz, fs, 32);
     butterworth_coefs(phase_mid, false, &lpf_mid[0]);
     butterworth_coefs(phase_mid, false, &lpf_mid[1]);
@@ -129,8 +127,6 @@ static void setup_filters(int low_hz, int mid_hz, unsigned long fs)
 
 static void flush_filters(void)
 {
-    filter_flush(&lpf_low[0]);
-    filter_flush(&lpf_low[1]);
     filter_flush(&lpf_mid[0]);
     filter_flush(&lpf_mid[1]);
 }
@@ -145,14 +141,9 @@ static void crystalizer_process(struct dsp_proc_entry *this,
     int32_t *out_r = buf->p32[1];
     const int num_ch = buf->format.num_channels;
 
-    /* Full scale = 2^frac_bits. The crystalizer is the last effect in the
-     * chain and adds gain (transient intensity + output gain), so it must
-     * soft-limit its output or boosted peaks hard-clip at the output
-     * conversion. Accumulation below stays in int64 to avoid int32 wrap. */
-    const int frac_bits = buf->format.frac_bits;
-    const int64_t max_val  = ((int64_t)1 << frac_bits) - 1;
-    const int64_t thresh   = (max_val * 7) >> 3;
-    const int64_t headroom = max_val - thresh;
+    /* Full scale = 2^frac_bits (27 for 16-bit sources). Accumulation
+     * below stays in int64 to avoid int32 wrap. */
+    const int64_t max_val = ((int64_t)1 << buf->format.frac_bits) - 1;
 
     for (int s = 0; s < count; s++)
     {
@@ -165,19 +156,12 @@ static void crystalizer_process(struct dsp_proc_entry *this,
         {
             int32_t x = (ch == 0) ? L : R;
 
-            int32_t lp_low = biquad_step(&lpf_low[0], ch, x);
-            lp_low = biquad_step(&lpf_low[1], ch, lp_low);
-
-            int32_t hp_low = x - lp_low;
-
-            int32_t lp_mid = biquad_step(&lpf_mid[0], ch, hp_low);
+            int32_t lp_mid = biquad_step(&lpf_mid[0], ch, x);
             lp_mid = biquad_step(&lpf_mid[1], ch, lp_mid);
 
-            int32_t hp_mid = hp_low - lp_mid;
-
             int32_t bands[NUM_BANDS];
-            bands[0] = lp_low + lp_mid;
-            bands[1] = hp_mid;
+            bands[0] = lp_mid;
+            bands[1] = x - lp_mid;
 
             int64_t sum = 0;
 
@@ -200,25 +184,13 @@ static void crystalizer_process(struct dsp_proc_entry *this,
             if (output_gain != UNITY)
                 merged = (merged * output_gain) >> 24;
 
-            /* Soft-limiter: linear up to 7/8 FS, asymptotic knee above. */
-            int64_t abs_m = (merged < 0) ? -merged : merged;
-            int32_t result;
+            /* Clamp in 64-bit before narrowing; peak control belongs to
+             * the compressor stage (no per-sample divide, no knee below FS). */
+            if (merged > max_val)       merged = max_val;
+            else if (merged < -max_val) merged = -max_val;
 
-            if (abs_m <= thresh)
-            {
-                result = (int32_t)merged;
-            }
-            else
-            {
-                int64_t over = abs_m - thresh;
-                int64_t soft_over = headroom - (headroom * headroom) / (headroom + over);
-                int64_t y = thresh + soft_over;
-                if (y > max_val) y = max_val;
-                result = (int32_t)((merged < 0) ? -y : y);
-            }
-
-            if (ch == 0) outL = result;
-            else         outR = result;
+            if (ch == 0) outL = (int32_t)merged;
+            else         outR = (int32_t)merged;
         }
 
         if (num_ch == 1) outR = outL;
@@ -232,7 +204,11 @@ static void crystalizer_process(struct dsp_proc_entry *this,
 static bool crystalizer_update(struct dsp_config *dsp,
                                 const struct crystalizer_settings *settings)
 {
-    if (!settings->enabled)
+    /* With no band intensity and no trim the bands sum back to x exactly:
+     * a pure pass-through, so don't run the stage at all. */
+    if (!settings->enabled ||
+        (settings->intensity_mid == 0 && settings->intensity_high == 0 &&
+         settings->output_gain == 0))
         return false;
 
     int32_t fs = dsp_get_output_frequency(dsp);
@@ -241,24 +217,16 @@ static bool crystalizer_update(struct dsp_config *dsp,
 
     curr_set = *settings;
 
-    setup_filters(60, 3000, fs);
+    setup_filters(3000, fs);
 
+    /* Intensity is a linear weight on the band's second difference, in
+     * percent (+-240 -> +-2.4x). A dB mapping was discontinuous (0 = off,
+     * 0.1 dB = full 1.0x) and made the negative half meaningless. */
     for (int b = 0; b < NUM_BANDS; b++)
     {
         int val = (b == 0) ? settings->intensity_mid
                            : settings->intensity_high;
-
-        if (val != 0)
-        {
-            int32_t db_int  = val / 10;
-            int32_t db_frac = val % 10;
-            int32_t db_s16  = (db_int << 16) + (db_frac * 6554);
-            intensity_linear[b] = fp_factor(db_s16, 16) << 8;
-        }
-        else
-        {
-            intensity_linear[b] = 0;
-        }
+        intensity_linear[b] = (int32_t)(((int64_t)val * UNITY) / 100);
     }
 
     if (settings->output_gain != 0)
@@ -291,10 +259,10 @@ static intptr_t crystalizer_configure(struct dsp_proc_entry *this,
     {
     case DSP_PROC_INIT:
         if (value != 0)
-            break;
+            break; /* Already enabled */
+        /* Settings were just computed by dsp_set_crystalizer(). */
         this->process = crystalizer_process;
-        crystalizer_update(dsp, &curr_set);
-
+        /* Fall-through */
     case DSP_RESET:
     case DSP_FLUSH:
         for (int b = 0; b < NUM_BANDS; b++)
@@ -308,8 +276,8 @@ static intptr_t crystalizer_configure(struct dsp_proc_entry *this,
         flush_filters();
         break;
 
+    /* Only the output rate matters (resampler runs before this stage). */
     case DSP_SET_OUT_FREQUENCY:
-    case DSP_SET_FREQUENCY:
         crystalizer_update(dsp, &curr_set);
         break;
     }

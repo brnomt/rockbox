@@ -12,10 +12,10 @@
  *   Input -> LR4 crossover (2 cascaded LP biquads)
  *           -> Constant sub-bass boost (additive delta injection)
  *           -> Optional even-harmonic generator (MaxxBass-style)
- *           -> Output gain -> Soft clipper -> Output
+ *           -> Branch gain -> Recombine -> Prescale (1/boost) -> Safety limiter
  *
  * Dry mids/highs pass through; only the extracted sub band is boosted.
- * A master soft clipper limits peaks near full scale.
+ * The mix is prescaled by the boost amount so it cannot exceed full scale.
  *
  * Copyright (C) 2024
  *

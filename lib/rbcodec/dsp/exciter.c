@@ -48,7 +48,9 @@
 #define CUTOFF_MAX_HZ      8000
 
 static struct exciter_settings curr_set;
-static struct dsp_filter hpf1, hpf2;
+/* hpf1/hpf2: LR4 band isolation; hpf3: post-rectifier HP so the difference
+ * tones (f1-f2) the rectifier creates below the cutoff are not added. */
+static struct dsp_filter hpf1, hpf2, hpf3;
 
 static int32_t harmonics_gain = 0;
 static int64_t dc_state[MAX_CH];
@@ -127,12 +129,9 @@ static void setup_filter(int cutoff_hz, unsigned long fs)
     coefs[3] = FRACMUL(-a1, rcp_a0);
     coefs[4] = FRACMUL(-a2, rcp_a0);
 
-    hpf1.coefs[0] = coefs[0]; hpf2.coefs[0] = coefs[0];
-    hpf1.coefs[1] = coefs[1]; hpf2.coefs[1] = coefs[1];
-    hpf1.coefs[2] = coefs[2]; hpf2.coefs[2] = coefs[2];
-    hpf1.coefs[3] = coefs[3]; hpf2.coefs[3] = coefs[3];
-    hpf1.coefs[4] = coefs[4]; hpf2.coefs[4] = coefs[4];
-    hpf1.shift = 8;           hpf2.shift = 8;
+    for (int i = 0; i < 5; i++)
+        hpf1.coefs[i] = hpf2.coefs[i] = hpf3.coefs[i] = coefs[i];
+    hpf1.shift = hpf2.shift = hpf3.shift = 8;
 
     /* DC blocker at 10 Hz for the harmonics generator */
     int32_t fc = 10;
@@ -144,6 +143,7 @@ static void flush_filter(void)
 {
     filter_flush(&hpf1);
     filter_flush(&hpf2);
+    filter_flush(&hpf3);
     memset(dc_state, 0, sizeof(dc_state));
     memset(last_even_harm, 0, sizeof(last_even_harm));
 }
@@ -161,12 +161,8 @@ static void exciter_process(struct dsp_proc_entry *this,
     int32_t *out1  = buf->p32[1];
     const int num_chan = MIN(buf->format.num_channels, MAX_CH);
 
-    /* Full scale is 2^frac_bits; the soft limiter must track it (see
-     * bassboost.c for the full rationale). */
-    const int frac_bits = buf->format.frac_bits;
-    const int64_t max_val  = ((int64_t)1 << frac_bits) - 1;
-    const int64_t thresh   = (max_val * 7) >> 3;   /* 7/8 FS, ~ -1.9 dBFS */
-    const int64_t headroom = max_val - thresh;
+    /* Full scale is 2^frac_bits (27 for 16-bit sources). */
+    const int64_t max_val = ((int64_t)1 << buf->format.frac_bits) - 1;
 
     for (int n = 0; n < count; n++)
     {
@@ -189,35 +185,28 @@ static void exciter_process(struct dsp_proc_entry *this,
             int64_t hp_out = even_gen - last_even_harm[ch] +
                              ((dc_state[ch] * dc_coeff) >> 24);
 
-            int64_t max_state = max_val << 4;
+            /* Windup guard; |hf| - DC stays within ~FS, and the bound must
+             * fit int32 for the biquad below. */
+            int64_t max_state = MIN(max_val << 1, (int64_t)INT32_MAX);
             if (hp_out > max_state) hp_out = max_state;
             else if (hp_out < -max_state) hp_out = -max_state;
 
             last_even_harm[ch] = even_gen;
             dc_state[ch] = hp_out;
 
-            int64_t harm = (hp_out * harmonics_gain) >> 24;
+            /* Keep only the "air": the rectifier's difference tones land
+             * below the cutoff and would muddy the mids the dry path owns. */
+            int32_t harm_hp = biquad_step(&hpf3, ch, (int32_t)hp_out);
+            int64_t harm = ((int64_t)harm_hp * harmonics_gain) >> 24;
             int64_t result64 = (int64_t)x + harm;
 
-            /* Soft limiter: linear up to 7/8 FS, asymptotic knee above */
-            int64_t abs_g = (result64 < 0) ? -result64 : result64;
-            int32_t result;
+            /* Clamp in 64-bit before narrowing; peak control belongs to
+             * the compressor stage (no per-sample divide, no knee below FS). */
+            if (result64 > max_val)       result64 = max_val;
+            else if (result64 < -max_val) result64 = -max_val;
 
-            if (abs_g <= thresh)
-            {
-                result = (int32_t)result64;
-            }
-            else
-            {
-                int64_t over = abs_g - thresh;
-                int64_t soft_over = headroom - (headroom * headroom) / (headroom + over);
-                int64_t y = thresh + soft_over;
-                if (y > max_val) y = max_val;
-                result = (int32_t)((result64 < 0) ? -y : y);
-            }
-
-            if (ch == 0) outL = result;
-            else         outR = result;
+            if (ch == 0) outL = (int32_t)result64;
+            else         outR = (int32_t)result64;
         }
 
         if (num_chan == 1)
@@ -235,7 +224,8 @@ static void exciter_process(struct dsp_proc_entry *this,
 static bool exciter_update(struct dsp_config *dsp,
                            const struct exciter_settings *settings)
 {
-    if (!settings->enabled)
+    /* Zero intensity adds nothing: don't run the stage at all. */
+    if (!settings->enabled || settings->intensity <= 0)
         return false;
 
     unsigned long fs = dsp_get_output_frequency(dsp);
@@ -264,18 +254,17 @@ static intptr_t exciter_configure(struct dsp_proc_entry *this,
     {
     case DSP_PROC_INIT:
         if (value != 0)
-            break;
+            break; /* Already enabled */
+        /* Settings were just computed by dsp_set_exciter(). */
         this->process = exciter_process;
-        exciter_update(dsp, &curr_set);
-        break;
-
+        /* Fall-through */
     case DSP_RESET:
     case DSP_FLUSH:
         flush_filter();
         break;
 
+    /* Only the output rate matters (resampler runs before this stage). */
     case DSP_SET_OUT_FREQUENCY:
-    case DSP_SET_FREQUENCY:
         exciter_update(dsp, &curr_set);
         break;
     }

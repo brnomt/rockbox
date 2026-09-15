@@ -49,12 +49,14 @@ DSP_PROC_DB_START
     DSP_PROC_DB_ITEM(AFR)           /* auditory fatigue reduction */
     DSP_PROC_DB_ITEM(SURROUND)      /* haas surround */
     DSP_PROC_DB_ITEM(CHANNEL_MODE)  /* channel modes */
-    DSP_PROC_DB_ITEM(COMPRESSOR)    /* dynamic-range compressor */
     DSP_PROC_DB_ITEM(BASSBOOST)     /* bass booster */
     DSP_PROC_DB_ITEM(CRYSTALIZER)   /* multiband transient enhancer */
     DSP_PROC_DB_ITEM(EXCITER)       /* air exciter (treble harmonics) */
     DSP_PROC_DB_ITEM(WIDENER)       /* m/s stereo widener */
     DSP_PROC_DB_ITEM(REVERB)        /* mini reverb */
+    /* Compressor stays last so it can act as the master limiter for every
+     * gain-adding stage above (the effects themselves only hard-clamp). */
+    DSP_PROC_DB_ITEM(COMPRESSOR)    /* dynamic-range compressor */
 DSP_PROC_DB_STOP
 
 /* This file is included multiple times with different macro definitions so

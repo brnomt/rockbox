@@ -12,10 +12,16 @@
  *   Input -> LR4 crossover (2 cascaded LP biquads)
  *           -> Constant sub-bass boost (additive delta injection)
  *           -> Optional even-harmonic generator (MaxxBass-style)
- *           -> Branch gain -> Linked peak limiter (bass branch only) -> Recombine -> Output
+ *           -> Branch gain -> Recombine with dry -> Prescale -> Safety limiter -> Output
  *
  * LR4 (-24 dB/octave) isolates sub-bass. Boost is applied to the full
  * sub band (not dynamics-dependent). Harmonics require sub_bass_gain > 0.
+ *
+ * Headroom: adding +N dB of sub to a full-scale master cannot fit without
+ * either clipping or turning something down. Like Rockbox's own tone
+ * controls (prescaler) and EQ (precut), the whole mix is attenuated by the
+ * boost amount so the result stays below full scale by construction. The
+ * linked peak limiter only mops up filter overshoot / harmonics.
  *
  * Copyright (C) 2024
  *
@@ -51,6 +57,7 @@ static struct dsp_filter lpf1, lpf2;
 
 static int32_t boost_gain     = UNITY;
 static int32_t output_gain    = UNITY;
+static int32_t pre_gain       = UNITY;  /* 1/boost, applied to the mix */
 
 /* Psychoacoustic Harmonics Generator */
 static int32_t harmonics_gain = 0;
@@ -191,19 +198,23 @@ static void bassboost_process(struct dsp_proc_entry *this,
     int32_t *out1  = buf->p32[1];
     const int num_chan = MIN(buf->format.num_channels, MAX_CH);
 
-    /* Full scale is 2^frac_bits (2^27 for 16-bit sources, 2^31 for 32-bit).
-     * The limiter must track it: a fixed 2^31 threshold sits far above the
-     * real full scale of 16-bit audio and never engages. */
+    /* Full scale is 2^frac_bits (2^27 for 16-bit sources, up to 2^29 for
+     * high-depth codecs). The limiter must track it: a fixed 2^31 threshold
+     * sits far above the real full scale and never engages. Threshold is FS
+     * itself: with instant attack env >= |sample| always holds, so output
+     * never exceeds it, and anything lower would duck a loud dry master. */
     const int frac_bits = buf->format.frac_bits;
     const int64_t max_val = ((int64_t)1 << frac_bits) - 1;
-    const int64_t thresh  = (max_val * 7) >> 3;   /* 7/8 FS, ~ -1.9 dBFS */
+    /* The limiter tracks the raw (pre-prescale) mix, so its threshold is
+     * FS / pre_gain. One 64-bit divide per buffer instead of per sample, and
+     * prescale + limiter gain collapse into a single multiply per sample. */
+    const int64_t thresh  = (max_val << 24) / pre_gain;
 
     for (int n = 0; n < count; n++)
     {
         int32_t L = out0[n];
         int32_t R = (num_chan > 1) ? out1[n] : L;
-        int64_t dry[MAX_CH] = {0, 0};
-        int64_t wet_branch[MAX_CH] = {0, 0};
+        int64_t mix[MAX_CH] = {0, 0};
 
         for (int ch = 0; ch < num_chan; ch++)
         {
@@ -241,58 +252,67 @@ static void bassboost_process(struct dsp_proc_entry *this,
                 harm = (hp_out * harmonics_gain) >> 24;
             }
 
-            /* Build only the processed bass branch: (wet - sub) + harmonics */
+            /* Processed bass branch: (wet - sub) + harmonics */
             int64_t delta_bass = wet - sub;
             int64_t branch = delta_bass + harm;
-
-            /* Keep dry path untouched; gain applies only to the bass branch. */
-            dry[ch] = x;
 
             /* Pre-shift branch to avoid 64-bit overflow with large output_gain */
             int64_t g_branch = (branch >> 8) * output_gain;
             g_branch >>= 16; /* 8 + 16 = 24 bits for Q24 */
-            wet_branch[ch] = g_branch;
+
+            /* Raw recombined mix; prescale (1/boost) is applied below
+             * together with the limiter gain. */
+            mix[ch] = (int64_t)x + g_branch;
         }
 
-        /* Linked-channel peak limiter over the boosted branch only.
-         * This prevents low-frequency peaks from ducking the dry mids/highs. */
-        int64_t peak = (wet_branch[0] < 0) ? -wet_branch[0] : wet_branch[0];
+        /* Linked-channel peak limiter over the full mix. With prescale in
+         * place this only engages on LR4 overshoot / harmonics, so it does
+         * not pump on normal material. Below threshold the envelope value
+         * is irrelevant to the gain, so the release math (and the 64-bit
+         * divide) only run while actually limiting. */
+        int64_t peak = (mix[0] < 0) ? -mix[0] : mix[0];
         if (num_chan > 1)
         {
-            int64_t peak_r = (wet_branch[1] < 0) ? -wet_branch[1] : wet_branch[1];
+            int64_t peak_r = (mix[1] < 0) ? -mix[1] : mix[1];
             if (peak_r > peak)
                 peak = peak_r;
         }
 
         if (peak >= lim_env)
             lim_env = peak;                           /* instant attack */
-        else
+        else if (lim_env > thresh)
             lim_env -= (lim_env * lim_rls) >> 24;     /* exp release */
 
-        int32_t target = UNITY;
-        if (lim_env > thresh)
-            target = (int32_t)(((int64_t)thresh << 24) / lim_env);
+        int32_t gain = pre_gain;
+        if (lim_env > thresh || lim_gain < UNITY)
+        {
+            int32_t target = UNITY;
+            if (lim_env > thresh)
+                target = (int32_t)((thresh << 24) / lim_env);
 
-        if (target <= lim_gain)
-            lim_gain = target;                        /* instant attack */
-        else
-            lim_gain += (int32_t)(((int64_t)(target - lim_gain) * lim_rls) >> 24);
+            if (target <= lim_gain)
+                lim_gain = target;                    /* instant attack */
+            else
+            {
+                int32_t step = (int32_t)(((int64_t)(target - lim_gain) * lim_rls) >> 24);
+                lim_gain = step ? lim_gain + step : target; /* snap when step rounds to 0 */
+            }
 
-        int64_t limL = (wet_branch[0] * lim_gain) >> 24;
-        int64_t mixL = dry[0] + limL;
-        int32_t outL = (int32_t)mixL;
-        if (outL > max_val)       outL = (int32_t)max_val;
-        else if (outL < -max_val) outL = (int32_t)(-max_val);
+            gain = (int32_t)(((int64_t)pre_gain * lim_gain) >> 24);
+        }
 
-        out0[n] = outL;
+        /* Clamp in 64-bit before narrowing; casting first would wrap. */
+        int64_t outL = (mix[0] * gain) >> 24;
+        if (outL > max_val)       outL = max_val;
+        else if (outL < -max_val) outL = -max_val;
+        out0[n] = (int32_t)outL;
+
         if (num_chan > 1)
         {
-            int64_t limR = (wet_branch[1] * lim_gain) >> 24;
-            int64_t mixR = dry[1] + limR;
-            int32_t outR = (int32_t)mixR;
-            if (outR > max_val)       outR = (int32_t)max_val;
-            else if (outR < -max_val) outR = (int32_t)(-max_val);
-            out1[n] = outR;
+            int64_t outR = (mix[1] * gain) >> 24;
+            if (outR > max_val)       outR = max_val;
+            else if (outR < -max_val) outR = -max_val;
+            out1[n] = (int32_t)outR;
         }
     }
 }
@@ -303,7 +323,9 @@ static void bassboost_process(struct dsp_proc_entry *this,
 static bool bassboost_update(struct dsp_config *dsp,
                               const struct bassboost_settings *settings)
 {
-    if (!settings->enabled)
+    /* No boost means the stage is a pure pass-through (harmonics depend on
+     * the boost too), so don't pay for it at all - same as tone controls. */
+    if (!settings->enabled || settings->sub_bass_gain <= 0)
         return false;
 
     unsigned long fs = dsp_get_output_frequency(dsp);
@@ -335,10 +357,18 @@ static bool bassboost_update(struct dsp_config *dsp,
     else
         harmonics_gain = 0;
 
-    /* Bass-branch gain (applied before branch limiter/recombine) */
+    /* Bass-branch gain (applied before recombine) */
     output_gain = db_tenths_to_gain(settings->output_gain);
     if (output_gain > (UNITY * 16))
         output_gain = UNITY * 16;
+
+    /* Prescale the mix by the worst-case boost so the sum can never exceed
+     * full scale: |x + (boost-1)*og*sub| <= boost*og*|x|. Same idea as the
+     * tone-control prescaler / EQ precut; compensate with the volume knob. */
+    int precut_tenths = settings->sub_bass_gain;
+    if (settings->output_gain > 0)
+        precut_tenths += settings->output_gain;
+    pre_gain = db_tenths_to_gain(-precut_tenths);
 
     return true;
 }
@@ -355,18 +385,20 @@ static intptr_t bassboost_configure(struct dsp_proc_entry *this,
     {
     case DSP_PROC_INIT:
         if (value != 0)
-            break;
+            break; /* Already enabled */
+        /* Settings were just computed by dsp_set_bassboost(); only hook up
+         * the processing vector and start from clean state. */
         this->process = bassboost_process;
-        bassboost_update(dsp, &curr_set);
-        break;
-
+        /* Fall-through */
     case DSP_RESET:
     case DSP_FLUSH:
         flush_filter();
         break;
 
+    /* Only the output rate matters: the resampler runs before this stage,
+     * so a codec (input) rate change must not trigger a coefficient rebuild
+     * on every track start. */
     case DSP_SET_OUT_FREQUENCY:
-    case DSP_SET_FREQUENCY:
         bassboost_update(dsp, &curr_set);
         break;
     }

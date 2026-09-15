@@ -137,12 +137,8 @@ static void widener_process(struct dsp_proc_entry *this,
     if (buf->format.num_channels < 2)
         return;
 
-    /* Full scale is 2^frac_bits; the soft limiter must track it (see
-     * bassboost.c for the full rationale). */
-    const int frac_bits = buf->format.frac_bits;
-    const int64_t max_val  = ((int64_t)1 << frac_bits) - 1;
-    const int64_t thresh   = (max_val * 7) >> 3;   /* 7/8 FS, ~ -1.9 dBFS */
-    const int64_t headroom = max_val - thresh;
+    /* Full scale is 2^frac_bits (27 for 16-bit sources). */
+    const int64_t max_val = ((int64_t)1 << buf->format.frac_bits) - 1;
 
     for (int n = 0; n < count; n++)
     {
@@ -167,32 +163,17 @@ static void widener_process(struct dsp_proc_entry *this,
         int64_t newL = mid + side_out;
         int64_t newR = mid - side_out;
 
-        /* Soft limiter, per channel: linear up to 7/8 FS, asymptotic
-         * knee above; output never hard-clips. */
-        int64_t vals[2] = { newL, newR };
+        /* Clamp in 64-bit before narrowing (casting first would wrap).
+         * Like upstream stages, peak control is left to the compressor
+         * that follows in the chain; a per-sample soft knee here cost a
+         * 64-bit divide and coloured every loud master above -1 dBFS. */
+        if (newL > max_val)       newL = max_val;
+        else if (newL < -max_val) newL = -max_val;
+        if (newR > max_val)       newR = max_val;
+        else if (newR < -max_val) newR = -max_val;
 
-        for (int ch = 0; ch < 2; ch++)
-        {
-            int64_t g = vals[ch];
-            int64_t abs_g = (g < 0) ? -g : g;
-            int32_t result;
-
-            if (abs_g <= thresh)
-            {
-                result = (int32_t)g;
-            }
-            else
-            {
-                int64_t over = abs_g - thresh;
-                int64_t soft_over = headroom - (headroom * headroom) / (headroom + over);
-                int64_t y = thresh + soft_over;
-                if (y > max_val) y = max_val;
-                result = (int32_t)((g < 0) ? -y : y);
-            }
-
-            if (ch == 0) out0[n] = result;
-            else         out1[n] = result;
-        }
+        out0[n] = (int32_t)newL;
+        out1[n] = (int32_t)newR;
     }
 }
 
@@ -202,7 +183,8 @@ static void widener_process(struct dsp_proc_entry *this,
 static bool widener_update(struct dsp_config *dsp,
                            const struct widener_settings *settings)
 {
-    if (!settings->enabled)
+    /* 100% width is an exact pass-through: don't run the stage at all. */
+    if (!settings->enabled || settings->width == 100)
         return false;
 
     unsigned long fs = dsp_get_output_frequency(dsp);
@@ -236,18 +218,17 @@ static intptr_t widener_configure(struct dsp_proc_entry *this,
     {
     case DSP_PROC_INIT:
         if (value != 0)
-            break;
+            break; /* Already enabled */
+        /* Settings were just computed by dsp_set_widener(). */
         this->process = widener_process;
-        widener_update(dsp, &curr_set);
-        break;
-
+        /* Fall-through */
     case DSP_RESET:
     case DSP_FLUSH:
         flush_filter();
         break;
 
+    /* Only the output rate matters (resampler runs before this stage). */
     case DSP_SET_OUT_FREQUENCY:
-    case DSP_SET_FREQUENCY:
         widener_update(dsp, &curr_set);
         break;
     }
