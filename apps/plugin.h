@@ -83,6 +83,9 @@ int plugin_open(const char *plugin, const char *parameter);
 #include "metadata.h"
 #include "sound.h"
 #include "audio.h"
+#ifdef HAVE_HW_H264
+#include "hw_h264.h"
+#endif
 #include "voice_thread.h"
 #include "root_menu.h"
 #include "talk.h"
@@ -1046,10 +1049,14 @@ struct plugin_api {
                                    const struct viewport *vp);
     int (*gesture_flick_get)(const struct gesture_event *gevt);
 #endif
-
-    /* backlight control for hold switch (0=normal, 1=off, 2=on) */
-#ifdef HAS_BUTTON_HOLD
+#ifdef HAVE_HW_H264
+    const struct hw_h264_api *hw_h264;
+#endif
+#ifdef HAVE_BACKLIGHT
     void (*backlight_set_on_button_hold)(int index);
+#endif
+#if defined(HAVE_REMOTE_LCD) && defined(HAS_REMOTE_BUTTON_HOLD)
+    void (*remote_backlight_set_on_button_hold)(int index);
 #endif
 };
 

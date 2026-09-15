@@ -142,7 +142,7 @@
 #include "iap.h"
 #endif
 
-#ifdef HIBY_LINUX
+#if defined(HIBY_LINUX) && !defined(SIMULATOR)
 #include <sys/sysinfo.h>
 #endif
 
@@ -1405,6 +1405,24 @@ static int disk_callback(int btn, struct gui_synclist *lists)
                     i_vmin[card_extract_bits(card->csd, 55, 3)],
                     i_vmax[card_extract_bits(card->csd, 52, 3)]);
             }
+#if (CONFIG_STORAGE & STORAGE_SD)
+            /*
+             * Most drivers don't read SCR so an all zero value means
+             * the driver didn't populate it. Valid SCRs will have at
+             * least the SD_BUS_WIDTHS field containing a nonzero value.
+             */
+            if (card->scr[0] || card->scr[1])
+            {
+                int scr_vers = (card->scr[1] >> 28) & 0xF;
+                simplelist_addline("SCR version: %d", scr_vers);
+
+                if (scr_vers == 0)
+                {
+                    bool supports_cmd23 = card->scr[1] & 0x2;
+                    simplelist_addline("CMD23 supported: %s", supports_cmd23 ? "yes" : "no");
+                }
+            }
+#endif
         }
         else if (card->initialized == 0)
         {
@@ -2790,7 +2808,7 @@ static bool dbg_bootflash_dump(void) {
 }
 #endif
 
-#ifdef HIBY_LINUX
+#if defined(HIBY_LINUX) && !defined(SIMULATOR)
 static bool view_ram_info(void)
 {
     struct simplelist_info info;
@@ -2878,7 +2896,7 @@ static const struct {
 #ifdef __linux__
         { "View CPU stats", dbg_cpuinfo },
 #endif
-#ifdef HIBY_LINUX
+#if defined(HIBY_LINUX) && !defined(SIMULATOR)
         { "View RAM info", view_ram_info },
 #endif
 #if (CONFIG_BATTERY_MEASURE != 0) && !defined(SIMULATOR)

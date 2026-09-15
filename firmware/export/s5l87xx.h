@@ -1485,6 +1485,79 @@
 #define LCD_DRV_RST             (*(REG32_PTR_T)(LCD_BASE + 0x28))  /* Reset drive signal */
 #define LCD_WDATA               (*(REG32_PTR_T)(LCD_BASE + 0x40))  /* Write data register (0x40...0x5C) FIXME */
 
+#if CONFIG_CPU == S5L8702
+/* Composite video pipeline: video processor, mixer/router, and encoder. */
+#define SVID_COMPOSITOR_BASE 0x39100000u
+#define SVID_ROUTER_BASE     0x39200000u
+#define SVID_ENCODER_BASE    0x39300000u
+
+#define SVID_REG(base, offset) \
+    (*(REG32_PTR_T)((uintptr_t)(base) + (offset)))
+
+#define SVID_VP_ENABLE           0x000u
+#define SVID_VP_MODE             0x010u
+#define SVID_VP_PLANE0_PTR       0x028u
+#define SVID_VP_PLANE2_PTR       0x02cu
+#define SVID_VP_PLANE1_PTR       0x030u
+#define SVID_VP_UNUSED_PTR       0x034u
+#define SVID_VP_IMG_WIDTH        0x03cu
+#define SVID_VP_IMG_HEIGHT       0x040u
+#define SVID_VP_SRC_H_POS        0x044u
+#define SVID_VP_SRC_V_POS        0x048u
+#define SVID_VP_SRC_WIDTH        0x04cu
+#define SVID_VP_SRC_HEIGHT       0x050u
+#define SVID_VP_DST_H_POS        0x054u
+#define SVID_VP_DST_V_POS        0x058u
+#define SVID_VP_DST_WIDTH        0x05cu
+#define SVID_VP_DST_HEIGHT       0x060u
+#define SVID_VP_H_RATIO          0x064u
+#define SVID_VP_V_RATIO          0x068u
+#define SVID_VP_PLANE_MODE       0x3c0u
+#define SVID_VP_LUMA_SPAN        0x3c4u
+#define SVID_VP_CHROMA_SPAN      0x3c8u
+#define SVID_VP_ENDIAN_MODE      0x3ccu
+
+#define SVID_VP_ENABLE_ON        (1u << 0)
+#define SVID_VP_MODE_RETAIL_FMT8 0u
+#define SVID_VP_PLANE_PLANAR     1u
+#define SVID_VP_ENDIAN_LITTLE    (1u << 0)
+
+#define SVID_MXR_STATUS          0x000u
+#define SVID_MXR_CONFIG          0x004u
+#define SVID_MXR_VIDEO_CONFIG    0x008u
+#define SVID_MXR_GRAPHIC0_CONFIG 0x00cu
+#define SVID_MXR_GRAPHIC0_BASE   0x010u
+#define SVID_MXR_GRAPHIC0_POS    0x014u
+#define SVID_MXR_GRAPHIC0_SIZE   0x018u
+#define SVID_MXR_GRAPHIC_FORMATS 0x040u
+#define SVID_MXR_BG_COLOR0       0x048u
+#define SVID_MXR_BG_COLOR1       0x04cu
+#define SVID_MXR_BG_COLOR2       0x050u
+#define SVID_MXR_COMMIT          0x800u
+
+#define SVID_MXR_STATUS_IDLE     (1u << 1)
+#define SVID_MXR_STATUS_SYNC     (1u << 2)
+#define SVID_MXR_STATUS_RUN      (1u << 0)
+#define SVID_MXR_GRAPHICS_ENABLE (1u << 3)
+#define SVID_MXR_VIDEO_ENABLE    (1u << 4)
+#define SVID_MXR_GRAPHIC4_ENABLE (1u << 5)
+#define SVID_MXR_SD_SCAN         (1u << 1)
+#define SVID_MXR_ENABLE_MASK     (SVID_MXR_GRAPHICS_ENABLE | \
+                                  SVID_MXR_VIDEO_ENABLE | \
+                                  SVID_MXR_GRAPHIC4_ENABLE)
+
+#define SVID_SDO_CLOCK           0x000u
+#define SVID_SDO_CONFIG          0x008u
+#define SVID_SDO_DAC             0x03cu
+#define SVID_SDO_SOFTWARE_RESET  (1u << 4)
+#define SVID_SDO_CLOCK_ON        (1u << 0)
+#define SVID_SDO_DAC_ALL_ON      7u
+#define SVID_SDO_DAC_MUX_MASK    (0x3fu << 8)
+#define SVID_SDO_COMPONENT       (1u << 6)
+#define SVID_SDO_PROGRESSIVE     (1u << 4)
+#define SVID_SDO_STANDARD_MASK   0xfu
+#endif /* CONFIG_CPU == S5L8702 */
+
 /* 27. CLCD CONTROLLER */
 #define LCDBASE 0x39200000
 
@@ -1569,6 +1642,28 @@
 The following peripherals are not present in the Samsung S5L8700 datasheet.
 Information for them was gathered solely by reverse-engineering Apple's firmware.
 */
+
+/* VPU-B H.264 decoder - S5L8702 */
+#if CONFIG_CPU == S5L8702
+#define VPU_MODE        (*((REG32_PTR_T)(0x38100314)))
+#define VPU_BASE        0x39800000
+#define VPU_REG(off)    (*((REG32_PTR_T)(VPU_BASE + (off))))
+
+#define VPU_DPB_Y(i)    VPU_REG((i) * 12)
+#define VPU_DPB_CB(i)   VPU_REG((i) * 12 + 4)
+#define VPU_DPB_CR(i)   VPU_REG((i) * 12 + 8)
+#define VPU_OUT_Y       VPU_REG(0x0cc)
+#define VPU_OUT_CB      VPU_REG(0x0d0)
+#define VPU_OUT_CR      VPU_REG(0x0d4)
+#define VPU_CTRL_BUF    VPU_REG(0x0d8)
+#define VPU_SLICE_DESC  VPU_REG(0x0dc)
+#define VPU_DIMS        VPU_REG(0x0e0)
+#define VPU_STRIDES     VPU_REG(0x0e4)
+#define VPU_CTRL        VPU_REG(0x0e8)
+#define VPU_STATUS0     VPU_REG(0x0f0)
+#define VPU_STATUS1     VPU_REG(0x0f4)
+#define VPU_CONFIG      VPU_REG(0x118)
+#endif
 
 /* Hardware AES crypto unit - S5L8701+ */
 #if CONFIG_CPU==S5L8701

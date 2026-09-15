@@ -278,6 +278,61 @@ struct font* font_get(int font)
 /* This is no longer defined in ROCKBOX builds so just use a huge value */
 #define SKIN_BUFFER_SIZE (200*1024)
 
+int check_filetype(const char *ext, enum skinnable_screens *skin,
+                    enum screen_type *screen)
+{
+    if (!strcmp(ext, "sbs"))
+    {
+        *skin = CUSTOM_STATUSBAR;
+        *screen = SCREEN_MAIN;
+    }
+    else if (!strcmp(ext, "wps"))
+    {
+        *skin = WPS;
+        *screen = SCREEN_MAIN;
+    }
+    else if (!strcmp(ext, "fms"))
+    {
+#if CONFIG_TUNER
+        *skin = FM_SCREEN;
+        *screen = SCREEN_MAIN;
+#else
+        return 1;
+#endif
+    }
+    else if (!strcmp(ext, "rsbs"))
+    {
+#ifdef HAVE_REMOTE_LCD
+        *skin = CUSTOM_STATUSBAR;
+        *screen = SCREEN_REMOTE;
+#else
+        return 1;  /* unsupported, but not an error */
+#endif
+    }
+    else if (!strcmp(ext, "rwps"))
+    {
+#ifdef HAVE_REMOTE_LCD
+        *skin = WPS;
+        *screen = SCREEN_REMOTE;
+#else
+        return 1;
+#endif
+    }
+    else if (!strcmp(ext, "rfms"))
+    {
+#if defined(HAVE_REMOTE_LCD) && CONFIG_TUNER
+        *skin = FM_SCREEN;
+        *screen = SCREEN_REMOTE;
+#else
+        return 1;
+#endif
+    }
+    else
+        return -1;
+
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     int ret = 0;
@@ -286,7 +341,7 @@ int main(int argc, char **argv)
 
     struct wps_data wps={0};
     enum screen_type screen = SCREEN_MAIN;
-    struct screen* wps_screen;
+    enum skinnable_screens skin;
 
     /* No arguments -> print the help text
      * Also print the help text upon -h or --help */
@@ -294,7 +349,7 @@ int main(int argc, char **argv)
         strcmp(argv[1],"-h") == 0 ||
         strcmp(argv[1],"--help") == 0 )
     {
-        printf("Usage: checkwps [OPTIONS] filename.wps [filename2.wps]...\n");
+        printf("Usage: checkwps [OPTIONS] filename.wps [filename2.sbs]...\n");
         printf("\nOPTIONS:\n");
         printf("\t-v\t\tverbose\n");
         printf("\t-vv\t\tmore verbose\n");
@@ -335,37 +390,27 @@ int main(int argc, char **argv)
             goto done;
         }
         ext++;
-        if (!strcmp(ext, "rwps") || !strcmp(ext, "rsbs") || !strcmp(ext, "rfms"))
-        {
-#ifdef HAVE_REMOTE_LCD
-            screen = SCREEN_REMOTE;
-#else
-            /* skip rwps etc. if not supported on this target (not an error) */
-            continue;
-#endif
-        }
-        else if (!strcmp(ext, "wps")  || !strcmp(ext, "sbs")  || !strcmp(ext, "fms"))
-        {
-            screen = SCREEN_MAIN;
-        }
-        else
+
+        int valid = check_filetype(ext, &skin, &screen);
+        if (valid < 0)
         {
             printf("Invalid extension\n");
             ret = 2;
             goto done;
         }
-        wps_screen = &screens[screen];
+        else if (valid > 0)
+            continue; /* skip (unsupported by this target but not an error) */
 
-        res = skin_data_load(screen, &wps, name, true, &stats);
+        res = skin_data_load(skin, screen, &wps, name, true, &stats);
 
         if (!res) {
-            printf("WPS parsing failure\n");
+            printf("%s parsing failure\n", ext);
             skin_error_format_message();
             ret = 3;
             goto done;
         }
 
-        printf("WPS parsed OK\n\n");
+        printf("%s parsed OK\n\n", ext);
         if (wps_verbose_level>2)
             skin_debug_tree(SKINOFFSETTOPTR(skin_buffer, wps.tree));
     }
