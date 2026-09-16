@@ -62,13 +62,14 @@ static const int base_lengths[NUM_LINES] =
 
 static struct reverb_settings curr_set;
 
-static int lengths[NUM_LINES];
-static int pos[NUM_LINES];
-static int32_t lp_state[NUM_LINES];
+/* Comb indices/state and gains in IRAM — touched 8× per sample. */
+static int lengths[NUM_LINES] IBSS_ATTR;
+static int pos[NUM_LINES] IBSS_ATTR;
+static int32_t lp_state[NUM_LINES] IBSS_ATTR;
 
-static int32_t feedback = UNITY / 2;
-static int32_t damp1, damp2;
-static int32_t wet_gain;
+static int32_t feedback IBSS_ATTR = UNITY / 2;
+static int32_t damp1 IBSS_ATTR, damp2 IBSS_ATTR;
+static int32_t wet_gain IBSS_ATTR;
 
 static int handle = -1;
 
@@ -141,6 +142,12 @@ static void reverb_process(struct dsp_proc_entry *this,
 
     /* Full scale is 2^frac_bits (27 for 16-bit sources). */
     const int64_t max_val = ((int64_t)1 << buf->format.frac_bits) - 1;
+    const int32_t wgain = wet_gain;
+
+    /* Line bases once per buffer — avoids i*MAX_LEN every sample. */
+    int32_t *linep[NUM_LINES];
+    for (int i = 0; i < NUM_LINES; i++)
+        linep[i] = lines + i * MAX_LEN;
 
     for (int n = 0; n < count; n++)
     {
@@ -155,17 +162,16 @@ static void reverb_process(struct dsp_proc_entry *this,
 
         int64_t wetL = 0, wetR = 0;
 
-        for (int i = 0; i < NUM_LINES; i++)
-        {
-            int32_t out = comb_step(lines + i * MAX_LEN, i, input);
-            if (i < LINES_PER_SIDE)
-                wetL += out;
-            else
-                wetR += out;
-        }
+        for (int i = 0; i < LINES_PER_SIDE; i++)
+            wetL += comb_step(linep[i], i, input);
+        for (int i = LINES_PER_SIDE; i < NUM_LINES; i++)
+            wetR += comb_step(linep[i], i, input);
 
-        wetL = (wetL * wet_gain) >> 24;
-        wetR = (wetR * wet_gain) >> 24;
+        if (wgain != UNITY)
+        {
+            wetL = (wetL * wgain) >> 24;
+            wetR = (wetR * wgain) >> 24;
+        }
 
         /* Clamp in 64-bit before narrowing; peak control belongs to the
          * compressor stage (no per-sample divide, no knee below FS). */

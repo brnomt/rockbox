@@ -48,19 +48,20 @@
 #define NUM_BANDS 2
 
 static struct crystalizer_settings curr_set;
-static int32_t output_gain = UNITY;
-static int32_t wet_mix, dry_mix = UNITY;
+static int32_t output_gain IBSS_ATTR = UNITY;
+static int32_t wet_mix IBSS_ATTR, dry_mix IBSS_ATTR = UNITY;
 
-static int32_t intensity_linear[NUM_BANDS];
+static int32_t intensity_linear[NUM_BANDS] IBSS_ATTR;
 
 /* Single LR4 split at 3 kHz. A former 60 Hz split was dead work: its low
  * output was summed straight back into the mid band, so it cost 4 of the
  * 8 biquads per sample/channel and changed nothing. */
-static struct dsp_filter lpf_mid[2];
+static struct dsp_filter lpf_mid[2] IBSS_ATTR;
 
-static int32_t band_x1[NUM_BANDS][MAX_CH];
-static int32_t band_x2[NUM_BANDS][MAX_CH];
+static int32_t band_x1[NUM_BANDS][MAX_CH] IBSS_ATTR;
+static int32_t band_x2[NUM_BANDS][MAX_CH] IBSS_ATTR;
 
+/* Shift is always 8 for our FRACMUL coefs. */
 static FORCE_INLINE int32_t biquad_step(struct dsp_filter *f, int ch, int32_t x)
 {
     int64_t acc = (int64_t)x * f->coefs[0];
@@ -72,7 +73,7 @@ static FORCE_INLINE int32_t biquad_step(struct dsp_filter *f, int ch, int32_t x)
     f->history[ch][1] = f->history[ch][0];
     f->history[ch][0] = x;
     f->history[ch][3] = f->history[ch][2];
-    int32_t y = (int32_t)((acc << f->shift) >> 32);
+    int32_t y = (int32_t)((acc << 8) >> 32);
     f->history[ch][2] = y;
     return y;
 }
@@ -144,6 +145,11 @@ static void crystalizer_process(struct dsp_proc_entry *this,
     /* Full scale = 2^frac_bits (27 for 16-bit sources). Accumulation
      * below stays in int64 to avoid int32 wrap. */
     const int64_t max_val = ((int64_t)1 << buf->format.frac_bits) - 1;
+    const int32_t i_mid = intensity_linear[0];
+    const int32_t i_high = intensity_linear[1];
+    const int32_t dry = dry_mix;
+    const int32_t wet = wet_mix;
+    const int32_t ogain = output_gain;
 
     for (int s = 0; s < count; s++)
     {
@@ -159,41 +165,53 @@ static void crystalizer_process(struct dsp_proc_entry *this,
             int32_t lp_mid = biquad_step(&lpf_mid[0], ch, x);
             lp_mid = biquad_step(&lpf_mid[1], ch, lp_mid);
 
-            int32_t bands[NUM_BANDS];
-            bands[0] = lp_mid;
-            bands[1] = x - lp_mid;
+            int32_t band0 = lp_mid;
+            int32_t band1 = x - lp_mid;
 
-            int64_t sum = 0;
-
-            for (int b = 0; b < NUM_BANDS; b++)
+            /* Mid band: d2 before shifting history. */
+            int64_t sum = band0;
+            if (i_mid)
             {
-                int64_t d2_64 = (int64_t)bands[b] - 2 * (int64_t)band_x1[b][ch] + (int64_t)band_x2[b][ch];
-                int32_t d2 = (d2_64 > INT32_MAX) ? INT32_MAX : (d2_64 < INT32_MIN) ? INT32_MIN : (int32_t)d2_64;
-
-                band_x2[b][ch] = band_x1[b][ch];
-                band_x1[b][ch] = bands[b];
-
-                sum += bands[b];
-                if (intensity_linear[b] != 0 && d2 != 0)
-                    sum += ((int64_t)intensity_linear[b] * d2) >> 24;
+                int64_t d2_64 = (int64_t)band0 - 2 * (int64_t)band_x1[0][ch]
+                                              + (int64_t)band_x2[0][ch];
+                int32_t d2 = (d2_64 > INT32_MAX) ? INT32_MAX
+                           : (d2_64 < INT32_MIN) ? INT32_MIN : (int32_t)d2_64;
+                sum += ((int64_t)i_mid * d2) >> 24;
             }
+            band_x2[0][ch] = band_x1[0][ch];
+            band_x1[0][ch] = band0;
 
-            int64_t merged = (((int64_t)x * dry_mix) >> 24)
-                           + ((sum * wet_mix) >> 24);
+            /* High band */
+            sum += band1;
+            if (i_high)
+            {
+                int64_t d2_64 = (int64_t)band1 - 2 * (int64_t)band_x1[1][ch]
+                                              + (int64_t)band_x2[1][ch];
+                int32_t d2 = (d2_64 > INT32_MAX) ? INT32_MAX
+                           : (d2_64 < INT32_MIN) ? INT32_MIN : (int32_t)d2_64;
+                sum += ((int64_t)i_high * d2) >> 24;
+            }
+            band_x2[1][ch] = band_x1[1][ch];
+            band_x1[1][ch] = band1;
 
-            if (output_gain != UNITY)
-                merged = (merged * output_gain) >> 24;
+            /* Perfect reconstruction: band0+band1 == x. With wet=UNITY and
+             * dry=0 (default mix 100%) merged starts as sum; otherwise blend. */
+            int64_t merged;
+            if (dry == 0 && wet == UNITY)
+                merged = sum;
+            else
+                merged = (((int64_t)x * dry) >> 24) + ((sum * wet) >> 24);
 
-            /* Clamp in 64-bit before narrowing; peak control belongs to
-             * the compressor stage (no per-sample divide, no knee below FS). */
+            if (ogain != UNITY)
+                merged = (merged * ogain) >> 24;
+
+            /* Clamp in 64-bit before narrowing. */
             if (merged > max_val)       merged = max_val;
             else if (merged < -max_val) merged = -max_val;
 
             if (ch == 0) outL = (int32_t)merged;
             else         outR = (int32_t)merged;
         }
-
-        if (num_ch == 1) outR = outL;
 
         out_l[s] = outL;
         if (num_ch > 1)

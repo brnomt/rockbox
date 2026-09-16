@@ -50,16 +50,14 @@
 static struct exciter_settings curr_set;
 /* hpf1/hpf2: LR4 band isolation; hpf3: post-rectifier HP so the difference
  * tones (f1-f2) the rectifier creates below the cutoff are not added. */
-static struct dsp_filter hpf1, hpf2, hpf3;
+static struct dsp_filter hpf1 IBSS_ATTR, hpf2 IBSS_ATTR, hpf3 IBSS_ATTR;
 
-static int32_t harmonics_gain = 0;
-static int64_t dc_state[MAX_CH];
-static int64_t last_even_harm[MAX_CH];
-static int32_t dc_coeff;
+static int32_t harmonics_gain IBSS_ATTR = 0;
+static int64_t dc_state[MAX_CH] IBSS_ATTR;
+static int64_t last_even_harm[MAX_CH] IBSS_ATTR;
+static int32_t dc_coeff IBSS_ATTR;
 
-/* ------------------------------------------------------------------ */
-/*  Per-sample biquad step (direct form 1)                            */
-/* ------------------------------------------------------------------ */
+/* Shift is always 8 for our FRACMUL coefs. */
 static FORCE_INLINE int32_t biquad_step(struct dsp_filter *f, int ch, int32_t x)
 {
     int64_t acc  = (int64_t)x * f->coefs[0];
@@ -72,7 +70,7 @@ static FORCE_INLINE int32_t biquad_step(struct dsp_filter *f, int ch, int32_t x)
     f->history[ch][0] = x;
     f->history[ch][3] = f->history[ch][2];
 
-    int32_t y = (int32_t)((acc << f->shift) >> 32);
+    int32_t y = (int32_t)((acc << 8) >> 32);
     f->history[ch][2] = y;
     return y;
 }
@@ -163,6 +161,8 @@ static void exciter_process(struct dsp_proc_entry *this,
 
     /* Full scale is 2^frac_bits (27 for 16-bit sources). */
     const int64_t max_val = ((int64_t)1 << buf->format.frac_bits) - 1;
+    const int64_t max_state = MIN(max_val << 1, (int64_t)INT32_MAX);
+    const int32_t hgain = harmonics_gain;
 
     for (int n = 0; n < count; n++)
     {
@@ -185,9 +185,7 @@ static void exciter_process(struct dsp_proc_entry *this,
             int64_t hp_out = even_gen - last_even_harm[ch] +
                              ((dc_state[ch] * dc_coeff) >> 24);
 
-            /* Windup guard; |hf| - DC stays within ~FS, and the bound must
-             * fit int32 for the biquad below. */
-            int64_t max_state = MIN(max_val << 1, (int64_t)INT32_MAX);
+            /* Windup guard; bound fits int32 for the biquad below. */
             if (hp_out > max_state) hp_out = max_state;
             else if (hp_out < -max_state) hp_out = -max_state;
 
@@ -197,7 +195,7 @@ static void exciter_process(struct dsp_proc_entry *this,
             /* Keep only the "air": the rectifier's difference tones land
              * below the cutoff and would muddy the mids the dry path owns. */
             int32_t harm_hp = biquad_step(&hpf3, ch, (int32_t)hp_out);
-            int64_t harm = ((int64_t)harm_hp * harmonics_gain) >> 24;
+            int64_t harm = ((int64_t)harm_hp * hgain) >> 24;
             int64_t result64 = (int64_t)x + harm;
 
             /* Clamp in 64-bit before narrowing; peak control belongs to
@@ -208,9 +206,6 @@ static void exciter_process(struct dsp_proc_entry *this,
             if (ch == 0) outL = (int32_t)result64;
             else         outR = (int32_t)result64;
         }
-
-        if (num_chan == 1)
-            outR = outL;
 
         out0[n] = outL;
         if (num_chan > 1)

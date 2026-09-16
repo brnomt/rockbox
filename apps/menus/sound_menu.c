@@ -337,24 +337,31 @@ static int timestretch_callback(int action,
  * chain by is_dsp_setting() in settings.c. */
 
 /* The DSP output sits 1-2 s ahead of the DAC in the PCM buffer, so a preset
- * applied "live" is heard late and with a step. Pause (fading if the user
- * has fade on stop/pause), re-decode from the current position through the
- * new chain, resume: the switch happens while the output is silent. */
-static void dsp_preset_resync_audio(void)
+ * applied "live" is heard late and with a step. Pause first, apply with
+ * settings_apply(false) (no icon/font reload from disk — that was the
+ * multi-second WAIT freeze), re-decode from the current position, resume. */
+static void dsp_preset_resync_audio(bool was_playing)
 {
     int status = audio_status();
     if (!(status & AUDIO_STATUS_PLAY))
         return;
-
-    bool was_playing = !(status & AUDIO_STATUS_PAUSE);
-    if (was_playing)
-        audio_pause();
 
     audio_pre_ff_rewind(); /* waits for the fade, then holds the PCM */
     audio_ff_rewind(audio_current_track()->elapsed);
 
     if (was_playing)
         audio_resume();
+}
+
+static bool dsp_preset_pause_if_playing(void)
+{
+    int status = audio_status();
+    if ((status & AUDIO_STATUS_PLAY) && !(status & AUDIO_STATUS_PAUSE))
+    {
+        audio_pause();
+        return true;
+    }
+    return false;
 }
 
 static int dsp_preset_load(void)
@@ -378,13 +385,21 @@ static int dsp_preset_load(void)
         return 0;
 
     splash(0, ID2P(LANG_WAIT));
-    if (settings_load_config(path, true))
+    bool was_playing = dsp_preset_pause_if_playing();
+    /* Parse only — apply(false) below skips icons_init/font reload. */
+    if (settings_load_config(path, false))
     {
-        dsp_preset_resync_audio();
+        settings_save();
+        settings_apply(false);
+        dsp_preset_resync_audio(was_playing);
         splash(HZ, ID2P(LANG_SETTINGS_LOADED));
     }
     else
+    {
+        if (was_playing)
+            audio_resume();
         splash(HZ, ID2P(LANG_FAILED));
+    }
 
     return 0;
 }
@@ -397,8 +412,9 @@ static int dsp_preset_save(void)
 
 static int dsp_preset_reset(void)
 {
+    bool was_playing = dsp_preset_pause_if_playing();
     settings_reset_dsp();
-    dsp_preset_resync_audio();
+    dsp_preset_resync_audio(was_playing);
     splash(HZ, ID2P(LANG_RESET_DONE_CLEAR));
     return 0;
 }

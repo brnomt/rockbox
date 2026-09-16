@@ -53,25 +53,28 @@
 #define CROSSOVER_MAX_HZ   500
 
 static struct bassboost_settings curr_set;
-static struct dsp_filter lpf1, lpf2;
+/* Hot filter/gain state in IRAM: SDRAM misses on every sample dominate
+ * ARM7TDMI cost once several stages are enabled (see rockbox.map .iram). */
+static struct dsp_filter lpf1 IBSS_ATTR, lpf2 IBSS_ATTR;
 
-static int32_t boost_gain     = UNITY;
-static int32_t output_gain    = UNITY;
-static int32_t pre_gain       = UNITY;  /* 1/boost, applied to the mix */
+static int32_t boost_gain  IBSS_ATTR = UNITY;
+static int32_t output_gain IBSS_ATTR = UNITY;
+static int32_t pre_gain    IBSS_ATTR = UNITY;  /* 1/boost, applied to the mix */
 
 /* Psychoacoustic Harmonics Generator */
-static int32_t harmonics_gain = 0;
-static int64_t dc_state[MAX_CH];
-static int64_t last_even_harm[MAX_CH];
-static int32_t dc_coeff;
+static int32_t harmonics_gain IBSS_ATTR = 0;
+static int64_t dc_state[MAX_CH] IBSS_ATTR;
+static int64_t last_even_harm[MAX_CH] IBSS_ATTR;
+static int32_t dc_coeff IBSS_ATTR;
 
 /* Linked-channel peak limiter */
-static int64_t lim_env;           /* peak envelope, FS units */
-static int32_t lim_gain = UNITY;  /* applied gain, Q24 */
-static int32_t lim_rls;           /* 1-pole release coefficient, Q24 */
+static int64_t lim_env IBSS_ATTR;           /* peak envelope, FS units */
+static int32_t lim_gain IBSS_ATTR = UNITY;  /* applied gain, Q24 */
+static int32_t lim_rls IBSS_ATTR;           /* 1-pole release coefficient, Q24 */
 
 /* ------------------------------------------------------------------ */
-/*  Per-sample biquad step (direct form 1)                            */
+/*  Per-sample biquad step (direct form 1). Shift is always 8 for our
+ *  FRACMUL coefs — load f->shift every sample was pure overhead.      */
 /* ------------------------------------------------------------------ */
 static FORCE_INLINE int32_t biquad_step(struct dsp_filter *f, int ch, int32_t x)
 {
@@ -85,7 +88,7 @@ static FORCE_INLINE int32_t biquad_step(struct dsp_filter *f, int ch, int32_t x)
     f->history[ch][0] = x;
     f->history[ch][3] = f->history[ch][2];
 
-    int32_t y = (int32_t)((acc << f->shift) >> 32);
+    int32_t y = (int32_t)((acc << 8) >> 32);
     f->history[ch][2] = y;
     return y;
 }
@@ -209,6 +212,10 @@ static void bassboost_process(struct dsp_proc_entry *this,
      * FS / pre_gain. One 64-bit divide per buffer instead of per sample, and
      * prescale + limiter gain collapse into a single multiply per sample. */
     const int64_t thresh  = (max_val << 24) / pre_gain;
+    const int32_t ogain = output_gain;
+    const int32_t bgain = boost_gain;
+    const int32_t hgain = harmonics_gain;
+    const bool apply_ogain = (ogain != UNITY);
 
     for (int n = 0; n < count; n++)
     {
@@ -226,11 +233,11 @@ static void bassboost_process(struct dsp_proc_entry *this,
             sub = biquad_step(&lpf2, ch, sub);
 
             /* Constant sub-bass boost (additive delta injection) */
-            int64_t wet = ((int64_t)sub * boost_gain) >> 24;
+            int64_t wet = ((int64_t)sub * bgain) >> 24;
 
             /* Psychoacoustic Harmonics (MaxxBass principle) */
             int64_t harm = 0;
-            if (harmonics_gain > 0)
+            if (hgain > 0)
             {
                 /* Generate even harmonics from original sub-bass (not amplified) */
                 int64_t even_gen = (sub < 0) ? -(int64_t)sub : (int64_t)sub;
@@ -249,20 +256,23 @@ static void bassboost_process(struct dsp_proc_entry *this,
                 last_even_harm[ch] = even_gen;
                 dc_state[ch] = hp_out;
 
-                harm = (hp_out * harmonics_gain) >> 24;
+                harm = (hp_out * hgain) >> 24;
             }
 
             /* Processed bass branch: (wet - sub) + harmonics */
-            int64_t delta_bass = wet - sub;
-            int64_t branch = delta_bass + harm;
+            int64_t branch = (wet - sub) + harm;
 
-            /* Pre-shift branch to avoid 64-bit overflow with large output_gain */
-            int64_t g_branch = (branch >> 8) * output_gain;
-            g_branch >>= 16; /* 8 + 16 = 24 bits for Q24 */
+            /* output_gain==UNITY: skip the >>8*gain>>16 path (that path also
+             * discards 8 LSBs). Non-unity still pre-shifts for overflow safety. */
+            if (apply_ogain)
+            {
+                branch = (branch >> 8) * ogain;
+                branch >>= 16;
+            }
 
             /* Raw recombined mix; prescale (1/boost) is applied below
              * together with the limiter gain. */
-            mix[ch] = (int64_t)x + g_branch;
+            mix[ch] = (int64_t)x + branch;
         }
 
         /* Linked-channel peak limiter over the full mix. With prescale in

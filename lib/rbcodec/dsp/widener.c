@@ -42,14 +42,12 @@
 #define CROSSOVER_MAX_HZ   500
 
 static struct widener_settings curr_set;
-static struct dsp_filter side_lpf;
+static struct dsp_filter side_lpf IBSS_ATTR;
 
-static int32_t width_gain     = UNITY;
-static int32_t width_low_gain = UNITY;
+static int32_t width_gain     IBSS_ATTR = UNITY;
+static int32_t width_low_gain IBSS_ATTR = UNITY;
 
-/* ------------------------------------------------------------------ */
-/*  Per-sample biquad step (direct form 1, channel 0 only)            */
-/* ------------------------------------------------------------------ */
+/* Shift is always 8 for our FRACMUL coefs. */
 static FORCE_INLINE int32_t biquad_step(struct dsp_filter *f, int32_t x)
 {
     int64_t acc  = (int64_t)x * f->coefs[0];
@@ -62,7 +60,7 @@ static FORCE_INLINE int32_t biquad_step(struct dsp_filter *f, int32_t x)
     f->history[0][0] = x;
     f->history[0][3] = f->history[0][2];
 
-    int32_t y = (int32_t)((acc << f->shift) >> 32);
+    int32_t y = (int32_t)((acc << 8) >> 32);
     f->history[0][2] = y;
     return y;
 }
