@@ -36,6 +36,10 @@
 #include "talk.h"
 #include "option_select.h"
 #include "misc.h"
+#include "rbpaths.h"
+#include "dir.h"
+#include "tree.h"
+#include "audio.h"
 
 static const char* vol_limit_format(char* buffer, size_t buffer_size, int value,
                       const char* unit)
@@ -328,6 +332,87 @@ static int timestretch_callback(int action,
 #ifdef AUDIOHW_HAVE_EQ
 #endif /* AUDIOHW_HAVE_EQ */
 
+/* DSP chain presets: .dsp files in DSP_DIR, same "name: value" format as any .cfg
+ * (same writer, parser, keyboard and browser), restricted to the processing
+ * chain by is_dsp_setting() in settings.c. */
+
+/* The DSP output sits 1-2 s ahead of the DAC in the PCM buffer, so a preset
+ * applied "live" is heard late and with a step. Pause (fading if the user
+ * has fade on stop/pause), re-decode from the current position through the
+ * new chain, resume: the switch happens while the output is silent. */
+static void dsp_preset_resync_audio(void)
+{
+    int status = audio_status();
+    if (!(status & AUDIO_STATUS_PLAY))
+        return;
+
+    bool was_playing = !(status & AUDIO_STATUS_PAUSE);
+    if (was_playing)
+        audio_pause();
+
+    audio_pre_ff_rewind(); /* waits for the fade, then holds the PCM */
+    audio_ff_rewind(audio_current_track()->elapsed);
+
+    if (was_playing)
+        audio_resume();
+}
+
+static int dsp_preset_load(void)
+{
+    char path[MAX_PATH];
+    struct browse_context browse = {
+        .dirfilter = SHOW_CFG,
+        .flags = BROWSE_SELECTONLY | BROWSE_NO_CONTEXT_MENU,
+        .title = str(LANG_DSP_PRESET_LOAD),
+        .icon = Icon_Config,
+        .root = DSP_DIR,
+        .buf = path,
+        .bufsize = sizeof(path),
+    };
+
+    if (!dir_exists(DSP_DIR))
+        mkdir(DSP_DIR);
+
+    rockbox_browse(&browse);
+    if (!(browse.flags & BROWSE_SELECTED))
+        return 0;
+
+    splash(0, ID2P(LANG_WAIT));
+    if (settings_load_config(path, true))
+    {
+        dsp_preset_resync_audio();
+        splash(HZ, ID2P(LANG_SETTINGS_LOADED));
+    }
+    else
+        splash(HZ, ID2P(LANG_FAILED));
+
+    return 0;
+}
+
+static int dsp_preset_save(void)
+{
+    settings_save_config(SETTINGS_SAVE_DSPPRESET);
+    return 0;
+}
+
+static int dsp_preset_reset(void)
+{
+    settings_reset_dsp();
+    dsp_preset_resync_audio();
+    splash(HZ, ID2P(LANG_RESET_DONE_CLEAR));
+    return 0;
+}
+
+MENUITEM_FUNCTION(dsp_preset_load_item, 0, ID2P(LANG_DSP_PRESET_LOAD),
+                  dsp_preset_load, NULL, Icon_NOICON);
+MENUITEM_FUNCTION(dsp_preset_save_item, 0, ID2P(LANG_DSP_PRESET_SAVE),
+                  dsp_preset_save, NULL, Icon_NOICON);
+MENUITEM_FUNCTION(dsp_preset_reset_item, 0, ID2P(LANG_DSP_PRESET_RESET),
+                  dsp_preset_reset, NULL, Icon_NOICON);
+MAKE_MENU(dsp_preset_menu, ID2P(LANG_DSP_PRESETS), NULL, Icon_Config,
+          &dsp_preset_load_item, &dsp_preset_save_item,
+          &dsp_preset_reset_item);
+
 MAKE_MENU(sound_settings, ID2P(LANG_SOUND_SETTINGS), NULL, Icon_Audio,
           &volume
           ,&volume_limit
@@ -365,6 +450,7 @@ MAKE_MENU(sound_settings, ID2P(LANG_SOUND_SETTINGS), NULL, Icon_Audio,
           ,&timestretch_enabled
 #endif
           ,&compressor_menu
+          ,&dsp_preset_menu
           ,&input_gain
           ,&bassboost_menu
           ,&crystalizer_menu

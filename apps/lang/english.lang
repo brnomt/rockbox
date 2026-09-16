@@ -17694,3 +17694,59 @@
     *: "Input Gain"
   </voice>
 </phrase>
+<phrase>
+  id: LANG_DSP_PRESETS
+  desc: in sound settings, submenu for whole-chain presets
+  user: core
+  <source>
+    *: "DSP Chain Presets"
+  </source>
+  <dest>
+    *: "DSP Chain Presets"
+  </dest>
+  <voice>
+    *: "DSP chain presets"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_DSP_PRESET_LOAD
+  desc: in dsp chain presets menu
+  user: core
+  <source>
+    *: "Load Preset"
+  </source>
+  <dest>
+    *: "Load Preset"
+  </dest>
+  <voice>
+    *: "Load preset"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_DSP_PRESET_SAVE
+  desc: in dsp chain presets menu
+  user: core
+  <source>
+    *: "Save Current Setup"
+  </source>
+  <dest>
+    *: "Save Current Setup"
+  </dest>
+  <voice>
+    *: "Save current setup"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_DSP_PRESET_RESET
+  desc: in dsp chain presets menu
+  user: core
+  <source>
+    *: "Reset to Default"
+  </source>
+  <dest>
+    *: "Reset to Default"
+  </dest>
+  <voice>
+    *: "Reset to default"
+  </voice>
+</phrase>

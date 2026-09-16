@@ -71,6 +71,7 @@ static const struct filetype_inbuilt inbuilt_filetypes[] = {
     { "m3u",  FILE_ATTR_M3U },
     { "m3u8", FILE_ATTR_M3U },
     { "cfg",  FILE_ATTR_CFG },
+    { "dsp",  FILE_ATTR_CFG }, /* DSP chain preset: same format as .cfg */
     { "wps",  FILE_ATTR_WPS },
     { "bmp",  FILE_ATTR_BMP },
     { "mod",  FILE_ATTR_MOD },

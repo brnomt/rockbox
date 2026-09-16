@@ -51,6 +51,7 @@
 #include "screens.h"
 #include "ctype.h"
 #include "file.h"
+#include "dir.h"
 #include "system.h"
 #include "general.h"
 #include "misc.h"
@@ -321,7 +322,18 @@ bool string_to_cfg(const char *name, char* value, bool *theme_changed)
 #endif
             if (setting_get_cfgvals(setting) == NULL)
             {
-                *(int*)setting->setting = atoi(value);
+                int v = atoi(value);
+                /* .cfg/.dsp files are hand-editable: keep plain ints inside
+                 * the declared range so a typo can't push a DSP stage off
+                 * scale. Function-valued bounds are left to the callback. */
+                if ((flags & (F_INT_SETTING|F_MIN_ISFUNC|F_MAX_ISFUNC))
+                        == F_INT_SETTING)
+                {
+                    const struct int_setting *is = setting->int_setting;
+                    int lo = MIN(is->min, is->max), hi = MAX(is->min, is->max);
+                    v = MAX(lo, MIN(hi, v));
+                }
+                *(int*)setting->setting = v;
                 logf("Val: %s\r\n",value);
             }
             else
@@ -443,6 +455,30 @@ bool settings_load_config(const char* file, bool apply)
             settings_apply_skins();
     }
     return true;
+}
+
+/** DSP chain presets **/
+
+/* A preset covers the processing chain only: never volume/limit, balance,
+ * replaygain, crossfade or transport settings. Membership is by cfg_name
+ * prefix so new stages join by naming their settings consistently. */
+static bool is_dsp_setting(const struct settings_list *setting)
+{
+    static const char * const prefixes[] = {
+        "input gain", "bass", "treble", "tone ", "eq ", "channels",
+        "stereo_width", "crossfeed", "surround", "pbe", "afr enabled",
+        "bassboost", "crystalizer", "exciter", "widener", "reverb",
+        "compressor", "dithering enabled",
+    };
+
+    if (!setting->cfg_name)
+        return false;
+
+    for (unsigned int i = 0; i < ARRAYLEN(prefixes); i++)
+        if (!strncmp(setting->cfg_name, prefixes[i], strlen(prefixes[i])))
+            return true;
+
+    return false;
 }
 
 /** Writing to a config file and saving settings **/
@@ -631,6 +667,10 @@ static bool settings_write_config(const char* filename, int options)
                 if (!(setting->flags & F_EQSETTING))
                     continue;
                 break;
+            case SETTINGS_SAVE_DSPPRESET:
+                if (!is_dsp_setting(setting))
+                    continue;
+                break;
             case SETTINGS_SAVE_RESUMEINFO:
                 if (!(setting->flags & F_RESUMESETTING))
                     continue;
@@ -751,12 +791,17 @@ int settings_save(void)
 bool settings_save_config(int options)
 {
     char filename[MAX_PATH];
-    const char *folder, *namebase;
+    const char *folder, *namebase, *ext = ".cfg";
     switch (options)
     {
         case SETTINGS_SAVE_THEME:
             folder = THEME_DIR;
             namebase = "theme";
+            break;
+        case SETTINGS_SAVE_DSPPRESET:
+            folder = DSP_DIR;
+            namebase = "dsp";
+            ext = ".dsp";
             break;
 #ifdef HAVE_RECORDING
         case SETTINGS_SAVE_RECPRESETS:
@@ -777,7 +822,10 @@ bool settings_save_config(int options)
             namebase = "config";
             break;
     }
-    create_numbered_filename(filename, folder, namebase, ".cfg", 2
+    if (!dir_exists(folder))
+        mkdir(folder);
+
+    create_numbered_filename(filename, folder, namebase, ext, 2
                              IF_CNFN_NUM_(, NULL));
 
     /* allow user to modify filename */
@@ -789,6 +837,12 @@ bool settings_save_config(int options)
             return false;
         }
     }
+
+    /* Presets are found by extension in the browser: put it back if the
+     * user typed a bare name. */
+    size_t len = strlen(filename), elen = strlen(ext);
+    if (len < elen || strcasecmp(filename + len - elen, ext))
+        strlcat(filename, ext, sizeof(filename));
 
     if (settings_write_config(filename, options))
         splash(HZ, ID2P(LANG_SETTINGS_SAVED));
@@ -1208,6 +1262,16 @@ void reset_setting(const struct settings_list *setting, void *var)
                    setting->filename_setting->max_len);
         break;
     }
+}
+
+void settings_reset_dsp(void)
+{
+    for (int i = 0; i < nb_settings; i++)
+        if (is_dsp_setting(&settings[i]))
+            reset_setting(&settings[i], settings[i].setting);
+
+    settings_save();
+    settings_apply(false);
 }
 
 void settings_reset(void)

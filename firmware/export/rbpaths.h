@@ -110,6 +110,7 @@
 
 #define BACKDROP_DIR        ROCKBOX_DIR "/backdrops"
 #define EQS_DIR             ROCKBOX_DIR "/eqs"
+#define DSP_DIR             ROCKBOX_DIR "/dsp"   /* DSP chain presets (.dsp) */
 
 /* need to fix this once the application gets record/radio abilities */
 #define RECPRESETS_DIR      ROCKBOX_DIR "/recpresets"

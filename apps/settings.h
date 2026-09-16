@@ -274,9 +274,12 @@ enum {
     SETTINGS_SAVE_RECPRESETS,
 #endif
     SETTINGS_SAVE_EQPRESET,
+    SETTINGS_SAVE_DSPPRESET,   /* whole processing chain -> DSP_DIR, .dsp */
     SETTINGS_SAVE_RESUMEINFO,
 };
 bool settings_save_config(int options);
+/* Reset every setting that belongs to a DSP chain preset and apply */
+void settings_reset_dsp(void);
 
 struct settings_list;
 struct filename_setting;
