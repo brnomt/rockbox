@@ -759,10 +759,17 @@ bool skin_has_sbs(struct gui_wps *gwps)
 /* Enter button loop updating peak meter at a high refresh rate */
 int skin_wait_for_action(enum skinnable_screens skin, int context, int timeout)
 {
-    /* Skip updates if peak meter disabled. */
+    /* Skip peak-meter tick loop if meters off, or main LCD asleep with no
+     * other screen needing them (Classic: avoids ~PEAK_METER_FPS wakeups). */
     bool peak_meter_enabled = false;
     FOR_NB_SCREENS(i)
+    {
+#if defined(HAVE_LCD_ENABLE) || defined(HAVE_LCD_SLEEP)
+        if (i == SCREEN_MAIN && !lcd_active())
+            continue;
+#endif
         peak_meter_enabled |= skin_get_gwps(skin, i)->data->peak_meter_enabled;
+    }
     if (!peak_meter_enabled)
         return get_action(context, timeout);
 
@@ -782,8 +789,14 @@ int skin_wait_for_action(enum skinnable_screens skin, int context, int timeout)
             continue;
 
         FOR_NB_SCREENS(i)
+        {
+#if defined(HAVE_LCD_ENABLE) || defined(HAVE_LCD_SLEEP)
+            if (i == SCREEN_MAIN && !lcd_active())
+                continue;
+#endif
             if (skin_get_gwps(skin, i)->data->peak_meter_enabled)
                 skin_update(skin, i, SKIN_REFRESH_PEAK_METER);
+        }
 
         next_refresh += HZ/PEAK_METER_FPS;
     }

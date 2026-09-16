@@ -794,8 +794,9 @@ long gui_wps_show(void)
             return do_wps_exit(button, bookmark);
         }
 
-        if (button && !IS_SYSEVENT(button) )
-            storage_spin();
+        /* Do not storage_spin() on every clickwheel event: it only resets the
+         * ATA activity timer and blocks spindown during WPS idle playback.
+         * Real I/O (seek, skip, bookmark) wakes storage on its own. */
 
         button = skin_wait_for_action(WPS, CONTEXT_WPS|ALLOW_SOFTLOCK, HZ/5);
 

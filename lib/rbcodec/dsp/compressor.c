@@ -67,10 +67,10 @@ static int32_t hp2y1 IBSS_ATTR;             /* hpf2 y[n-1]  */
 
 /* Delay Line for look-ahead compression */
 static int labuf_handle = -1;
-//static int32_t labuf[MAX_CH][MAX_DLY];      /* look-ahead buffer */
-static int32_t  delay_time;
-static int32_t  delay_write;
-static int32_t  delay_read;
+/* Delay indices in IRAM: hot every sample; line itself stays in SDRAM (buflib). */
+static int32_t delay_time  IBSS_ATTR;
+static int32_t delay_write IBSS_ATTR;
+static int32_t delay_read  IBSS_ATTR;
 
 /** 1-Pole LP Filter first coefficient computation
  *  Returns S7.24 format integer used for "a" coefficient
@@ -465,13 +465,13 @@ static void compressor_process(struct dsp_proc_entry *this,
     int32_t *in_buf[2] = { buf->p32[0], buf->p32[1] };
     const int num_chan = MIN(buf->format.num_channels, MAX_CH);
     int32_t (*labufp)[MAX_CH][MAX_DLY] = core_get_data(labuf_handle);
+    const int32_t makeup = comp_makeup_gain;
+    const bool apply_makeup = (makeup != UNITY);
+    struct sample_format *format = &buf->format;
 
     while (count-- > 0)
     {
-
-        /* Use the average of the channels */
-
-        int32_t sample_gain = UNITY;
+        int32_t sample_gain;
         int32_t x = 0;
         int32_t tmpx = 0;
         int32_t in_buf_max_level = 0;
@@ -481,102 +481,77 @@ static void compressor_process(struct dsp_proc_entry *this,
             x += tmpx;
             (*labufp)[ch][delay_write] = tmpx;
             /* Limiter detection */
-            if(tmpx < 0) tmpx = -(tmpx + 1);
-            if(tmpx > in_buf_max_level) in_buf_max_level = tmpx;
+            if (tmpx < 0)
+                tmpx = -(tmpx + 1);
+            if (tmpx > in_buf_max_level)
+                in_buf_max_level = tmpx;
         }
 
-        /** Divide it by the number of channels, roughly
-         *  It will be exact if the number of channels a power of 2
-         *  it will be imperfect otherwise.  Real division costs too
-         *  much here, and most of the time it will be 2 channels (stereo)
-         */
+        /* Average channels without a real divide (exact for power-of-2 ch). */
         x >>= (num_chan >> 1);
 
-        /** 1p HP Filters: y[n] = a*(y[n-1] + x - x[n-1])
-         *  Zero and Pole in the same place to reduce computation
-         *  Run the first pre-emphasis filter
-         */
+        /* 1p HP: y[n] = a*(y[n-1] + x - x[n-1]) */
         int32_t tmp1 = x - hpfx1 + hp1y1;
         hp1y1 = FRACMUL_SHL(hp1ca, tmp1, 7);
 
-        /* Run the second pre-emphasis filter */
         tmp1 = x - hpfx1 + hp2y1;
         hp2y1 = FRACMUL_SHL(hp2ca, tmp1, 7);
         hpfx1 = x;
 
-        /* Apply weighted sum to the pre-emphasis network */
-        sample_gain = (x>>1) + hp1y1 + (hp2y1<<1); /* x/2 + hp1 + 2*hp2 */
+        sample_gain = (x >> 1) + hp1y1 + (hp2y1 << 1); /* x/2 + hp1 + 2*hp2 */
         sample_gain >>= 1;
         sample_gain += sample_gain >> 1;
-        sample_gain = get_compression_gain(&buf->format, sample_gain);
+        sample_gain = get_compression_gain(format, sample_gain);
 
-        /* Exponential Attack and Release */
-
-       if ((sample_gain <= release_gain) && (sample_gain > 0))
-       {
-           /* Attack */
-           if(attca != UNITY)
-           {
-               int32_t this_gain = FRACMUL_SHL(release_gain, attcb, 7);
-               this_gain +=  FRACMUL_SHL(sample_gain, attca, 7);
-               release_gain = this_gain;
-           }
-           else
-           {
-                release_gain = sample_gain;
-           }
-           /** reset it to delay time so it cannot release before the
-            *  delayed signal releases
-            */
-           release_holdoff = delay_time;   
-       }
-       else
-       /* Reverse exponential decay to current gain value */
-       {
-            /* Don't start release while output is still above thresh */
-            if(release_holdoff > 0)
+        if ((sample_gain <= release_gain) && (sample_gain > 0))
+        {
+            if (attca != UNITY)
             {
-                release_holdoff--;
+                int32_t this_gain = FRACMUL_SHL(release_gain, attcb, 7);
+                this_gain += FRACMUL_SHL(sample_gain, attca, 7);
+                release_gain = this_gain;
             }
             else
             {
-               /* Release */
-               int32_t this_gain = FRACMUL_SHL(release_gain, rlscb, 7);
-               this_gain +=  FRACMUL_SHL(sample_gain,rlsca,7);
-               release_gain = this_gain;
+                release_gain = sample_gain;
             }
-
-       }
-
-        /** total gain factor is the product of release gain and makeup gain,
-         *  but avoid computation if possible
-         */
-
-        int32_t total_gain = FRACMUL_SHL(release_gain, comp_makeup_gain, 7);
-
-        /* Look-ahead limiter */
-        int32_t test_gain = FRACMUL_SHL(total_gain, in_buf_max_level, 3);
-        if( test_gain > UNITY)
+            release_holdoff = delay_time;
+        }
+        else if (release_holdoff > 0)
         {
-            release_gain -= limitca;
+            release_holdoff--;
+        }
+        else
+        {
+            int32_t this_gain = FRACMUL_SHL(release_gain, rlscb, 7);
+            this_gain += FRACMUL_SHL(sample_gain, rlsca, 7);
+            release_gain = this_gain;
         }
 
-        /** Implement the compressor: apply total gain factor (if any) to the
-         *  output buffer sample pair/mono sample
-         */
+        /* Skip makeup multiply when UNITY (same spirit as 8870a68 stage skips). */
+        int32_t total_gain = apply_makeup ?
+            FRACMUL_SHL(release_gain, makeup, 7) : release_gain;
+
+        int32_t test_gain = FRACMUL_SHL(total_gain, in_buf_max_level, 3);
+        if (test_gain > UNITY)
+            release_gain -= limitca;
+
         if (total_gain != UNITY)
         {
             for (int ch = 0; ch < num_chan; ch++)
             {
-              *in_buf[ch]  = FRACMUL_SHL(total_gain, (*labufp)[ch][delay_read], 7);
+                *in_buf[ch] = FRACMUL_SHL(total_gain,
+                                          (*labufp)[ch][delay_read], 7);
             }
         }
         in_buf[0]++;
         in_buf[1]++;
         delay_write++;
         delay_read++;
-        if(delay_write >= MAX_DLY) delay_write = 0;
-        if(delay_read >= MAX_DLY) delay_read = 0;
+        if (delay_write >= MAX_DLY)
+            delay_write = 0;
+        if (delay_read >= MAX_DLY)
+            delay_read = 0;
     }
 
     (void)this;

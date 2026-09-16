@@ -487,11 +487,14 @@ void * pcmbuf_request_buffer(int *count)
                 return NULL;
         }
 
-        /* Boost CPU if necessary */
+        /* Boost while below watermark; drop boost once fill is healthy so
+         * continuous playback is not stuck at MAX until the buffer is full. */
         size_t realrem = pcmbuf_size - freespace;
 
         if (realrem < pcmbuf_watermark)
             trigger_cpu_boost();
+        else
+            cancel_cpu_boost();
 
         boost_codec_thread(realrem*10 / pcmbuf_size);
     }
@@ -1266,8 +1269,8 @@ static void pcmbuf_finish_crossfade_enable(void)
     crossfade_setting = crossfade_enable_request;
 
     pcmbuf_watermark = (crossfade_setting != CROSSFADE_ENABLE_OFF && pcmbuf_size) ?
-        /* If crossfading, try to keep the buffer full other than 1 second */
-        (pcmbuf_size - BYTERATE) :
+        /* Keep ≥2 s free headroom — old (size - 1 s) held MAX nearly always */
+        (pcmbuf_size - 2 * BYTERATE) :
         /* Otherwise, just use the default */
         PCMBUF_WATERMARK;
 }

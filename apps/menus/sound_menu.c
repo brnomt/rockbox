@@ -389,7 +389,9 @@ static int dsp_preset_load(void)
     /* Parse only — apply(false) below skips icons_init/font reload. */
     if (settings_load_config(path, false))
     {
-        settings_save();
+        /* Apply in RAM only — skip settings_save() so Load does not force a
+         * config.cfg write / disk wake. Persist via Save preset or a later
+         * explicit settings change. */
         settings_apply(false);
         dsp_preset_resync_audio(was_playing);
         splash(HZ, ID2P(LANG_SETTINGS_LOADED));
